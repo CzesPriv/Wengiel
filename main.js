@@ -6,6 +6,7 @@ const restartBtn = document.querySelector("#restart-btn");
 const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const muteBtn = document.querySelector("#mute-btn");
 const stageFrame = document.querySelector(".stage-frame");
+const controlStrip = document.querySelector(".control-strip");
 
 const BOARD_COLS = 8;
 const BOARD_ROWS = 8;
@@ -115,6 +116,8 @@ const audioState = {
   schedulerId: null,
   active: false,
   muted: false,
+  unlockPromise: null,
+  primed: false,
   speechCooldownUntil: 0,
 };
 
@@ -228,6 +231,14 @@ function getStageInnerWidth() {
   return width > 0 ? width : stageFrame.clientWidth;
 }
 
+function getStageInnerHeight() {
+  const styles = window.getComputedStyle(stageFrame);
+  const verticalPadding =
+    Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom);
+  const height = stageFrame.clientHeight - verticalPadding;
+  return height > 0 ? height : stageFrame.clientHeight;
+}
+
 function pickResponsiveLayout() {
   const fullscreen = document.fullscreenElement === stageFrame;
   const compact =
@@ -239,12 +250,12 @@ function pickResponsiveLayout() {
 
 function syncCanvasPresentation() {
   const fullscreen = document.fullscreenElement === stageFrame;
-  const padding = fullscreen ? 24 : 0;
-  const availableWidth = fullscreen
-    ? Math.max(1, window.innerWidth - padding)
-    : Math.max(1, getStageInnerWidth());
+  const stageStyles = window.getComputedStyle(stageFrame);
+  const controlsGap = Number.parseFloat(stageStyles.rowGap || stageStyles.gap || "0") || 0;
+  const controlsHeight = controlStrip ? controlStrip.getBoundingClientRect().height : 0;
+  const availableWidth = Math.max(1, getStageInnerWidth());
   const availableHeight = fullscreen
-    ? Math.max(1, window.innerHeight - padding)
+    ? Math.max(1, getStageInnerHeight() - controlsHeight - controlsGap)
     : Number.POSITIVE_INFINITY;
   const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
   canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
@@ -361,12 +372,61 @@ function ensureAudioSystem() {
     }
   }
 
-  if (audioState.ctx.state === "suspended") {
-    audioState.ctx.resume().catch(() => {});
+  audioState.active = audioState.ctx.state === "running";
+  if (audioState.active) {
+    scheduleAnthemLoop();
   }
+  return true;
+}
+
+function primeAudioHardware() {
+  if (!audioState.ctx || !audioState.masterGain || audioState.ctx.state !== "running") return;
+  if (audioState.primed) return;
+
+  const silentGain = audioState.ctx.createGain();
+  silentGain.gain.value = 0.00001;
+  silentGain.connect(audioState.masterGain);
+
+  const silentBuffer = audioState.ctx.createBuffer(1, 1, audioState.ctx.sampleRate);
+  const source = audioState.ctx.createBufferSource();
+  source.buffer = silentBuffer;
+  source.connect(silentGain);
+  source.start(audioState.ctx.currentTime);
+  source.stop(audioState.ctx.currentTime + 0.001);
+
+  audioState.primed = true;
+}
+
+function markAudioActive() {
+  if (!audioState.ctx || audioState.ctx.state !== "running") {
+    audioState.active = false;
+    return false;
+  }
+
+  const wasActive = audioState.active;
   audioState.active = true;
+  if (!wasActive || audioState.nextAnthemAt <= audioState.ctx.currentTime) {
+    audioState.nextAnthemAt = audioState.ctx.currentTime + 0.08;
+  }
   scheduleAnthemLoop();
   return true;
+}
+
+async function primeAudioFromGesture() {
+  if (!ensureAudioSystem() || !audioState.ctx) return false;
+  if (audioState.ctx.state !== "running") {
+    if (!audioState.unlockPromise) {
+      audioState.unlockPromise = audioState.ctx
+        .resume()
+        .catch(() => {})
+        .finally(() => {
+          audioState.unlockPromise = null;
+        });
+    }
+    await audioState.unlockPromise;
+  }
+  primeAudioHardware();
+  return markAudioActive();
 }
 
 function syncAudioMix() {
@@ -697,6 +757,7 @@ function toggleMute() {
 }
 
 function startGame() {
+  void primeAudioFromGesture();
   const reusePreviewBoard =
     state.mode === "ready" && state.board.length > 0 && state.pendingPhase === null;
   ensureAudioSystem();
@@ -928,6 +989,7 @@ function toggleFullscreen() {
 }
 
 function handleKeyboard(event) {
+  void primeAudioFromGesture();
   const key = event.key.toLowerCase();
   if (key === "f") {
     toggleFullscreen();
@@ -1686,6 +1748,7 @@ function activateTouchGesture(endCell, event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  void primeAudioFromGesture();
   if (event.pointerType !== "touch") return;
   const cell = getCellAtClientPoint(event.clientX, event.clientY);
   if (!cell) return;
@@ -1710,6 +1773,7 @@ canvas.addEventListener("pointercancel", () => {
 });
 
 canvas.addEventListener("click", (event) => {
+  void primeAudioFromGesture();
   if (nowMs() < touchGesture.suppressClickUntil) return;
   const cell = getCellAtClientPoint(event.clientX, event.clientY);
   if (cell) {
@@ -1722,16 +1786,48 @@ canvas.addEventListener("mousemove", (event) => {
   state.hover = cell ? { row: cell.row, col: cell.col } : null;
 });
 
+function attachAudioUnlockListeners(element) {
+  if (!element) return;
+  element.addEventListener("pointerdown", () => {
+    void primeAudioFromGesture();
+  });
+  element.addEventListener(
+    "touchstart",
+    () => {
+      void primeAudioFromGesture();
+    },
+    { passive: true },
+  );
+}
+
 window.addEventListener("keydown", handleKeyboard);
 window.addEventListener("resize", () => {
   syncResponsiveLayout();
   render();
 });
 
-startBtn.addEventListener("click", startGame);
-restartBtn.addEventListener("click", startGame);
-fullscreenBtn.addEventListener("click", toggleFullscreen);
-muteBtn.addEventListener("click", toggleMute);
+attachAudioUnlockListeners(canvas);
+attachAudioUnlockListeners(startBtn);
+attachAudioUnlockListeners(restartBtn);
+attachAudioUnlockListeners(fullscreenBtn);
+attachAudioUnlockListeners(muteBtn);
+
+startBtn.addEventListener("click", () => {
+  void primeAudioFromGesture();
+  startGame();
+});
+restartBtn.addEventListener("click", () => {
+  void primeAudioFromGesture();
+  startGame();
+});
+fullscreenBtn.addEventListener("click", () => {
+  void primeAudioFromGesture();
+  toggleFullscreen();
+});
+muteBtn.addEventListener("click", () => {
+  void primeAudioFromGesture();
+  toggleMute();
+});
 
 window.addEventListener("fullscreenchange", () => {
   syncResponsiveLayout();

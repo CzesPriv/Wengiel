@@ -14,3 +14,5 @@ Original prompt: stworz gre w stylu bejeweled, tylko zamiast diamentow uzywaj, s
 - 2026-03-06: Dodano mobilny layout canvasu, dotykowy swipe/tap na planszy oraz dopasowanie canvasu do viewportu w fullscreen bez obcinania dolu planszy.
 - 2026-03-06: Screenshoty `output/web-game/mobile-check-2/` potwierdzaja czytelny widok mobilny i pelny canvas w fullscreen.
 - TODO: Opcjonalnie dodac suwak glosnosci, ekran wyniku koncowego albo trwaly high-score.
+- 2026-03-06: Przeniesiono pasek akcji do `stage-frame` i doskalowano canvas z uwzglednieniem wysokosci kontrolek, dzieki czemu przyciski pozostaja widoczne w fullscreen i na mobile; `output/web-game/mobile-controls-audio/mobile-state.json` oraz `output/web-game/desktop-fullscreen-controls/desktop-state.json` potwierdzaja widoczne akcje w obu widokach.
+- 2026-03-06: Audio mobilne jest teraz odblokowywane na pierwszym gescie uzytkownika (pointer/touch/click), z dodatkowym primingiem Web Audio; `output/web-game/post-fix-smoke/state-0.json` i `output/web-game/mobile-controls-audio/mobile-state.json` potwierdzaja `effects.audioActive = true` po starcie gry.
