@@ -17,6 +17,7 @@ wegiel kamienny, bursztyn, wegiel brunatny, miedz, sol kamienna i krzemien pasia
 - `R` restartuje szychtę.
 - `F` wlacza lub wylacza pelny ekran.
 - `M` przelacza mute/unmute.
+- Na telefonie mozesz tapnac dwa sasiednie pola albo wykonac krotki swipe, aby zrobic swap.
 
 ## Styl i assety
 
@@ -26,3 +27,4 @@ wegiel kamienny, bursztyn, wegiel brunatny, miedz, sol kamienna i krzemien pasia
 - Tlo dzwiekowe to instrumentalnie syntezowany `Mazurek Dabrowskiego` generowany lokalnie przez Web Audio.
 - Duze combo uruchamia deszcz gwiazdek i glos `Jeszcze Polska nie zginela` przez `speechSynthesis`.
 - Pasek sterowania ma tez osobny przycisk `Mute [M]`.
+- Gra ma osobny uklad mobilny, a fullscreen skaluje canvas tak, by cala plansza miescila sie w viewport.

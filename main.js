@@ -9,15 +9,40 @@ const stageFrame = document.querySelector(".stage-frame");
 
 const BOARD_COLS = 8;
 const BOARD_ROWS = 8;
-const CELL_SIZE = 72;
-const BOARD_X = 58;
-const BOARD_Y = 112;
-const BOARD_WIDTH = BOARD_COLS * CELL_SIZE;
-const BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE;
-const PANEL_X = 664;
-const PANEL_Y = 104;
-const PANEL_W = 252;
-const PANEL_H = 568;
+const DESKTOP_LAYOUT = {
+  mode: "desktop",
+  canvasWidth: 960,
+  canvasHeight: 720,
+  cellSize: 72,
+  boardX: 58,
+  boardY: 112,
+  panelX: 664,
+  panelY: 104,
+  panelW: 252,
+  panelH: 568,
+};
+const MOBILE_LAYOUT = {
+  mode: "mobile",
+  canvasWidth: 720,
+  canvasHeight: 1400,
+  cellSize: 79,
+  boardX: 44,
+  boardY: 120,
+  panelX: 36,
+  panelY: 780,
+  panelW: 648,
+  panelH: 560,
+};
+let currentLayoutMode = "desktop";
+let CELL_SIZE = DESKTOP_LAYOUT.cellSize;
+let BOARD_X = DESKTOP_LAYOUT.boardX;
+let BOARD_Y = DESKTOP_LAYOUT.boardY;
+let BOARD_WIDTH = BOARD_COLS * CELL_SIZE;
+let BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE;
+let PANEL_X = DESKTOP_LAYOUT.panelX;
+let PANEL_Y = DESKTOP_LAYOUT.panelY;
+let PANEL_W = DESKTOP_LAYOUT.panelW;
+let PANEL_H = DESKTOP_LAYOUT.panelH;
 const ROUND_TIME_MS = 95_000;
 const TARGET_SCORE = 4500;
 const FRAME_MS = 1000 / 60;
@@ -166,6 +191,12 @@ const state = {
   roundSeed: null,
   externalTimeControl: false,
 };
+const touchGesture = {
+  active: false,
+  pointerId: null,
+  startCell: null,
+  suppressClickUntil: 0,
+};
 
 function createEmptyCollected() {
   return Object.fromEntries(TILE_IDS.map((id) => [id, 0]));
@@ -187,6 +218,57 @@ function parseSeedValue(raw) {
     return Number.isFinite(parsed) ? parsed >>> 0 : null;
   }
   return null;
+}
+
+function getStageInnerWidth() {
+  const styles = window.getComputedStyle(stageFrame);
+  const horizontalPadding =
+    Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+  const width = stageFrame.clientWidth - horizontalPadding;
+  return width > 0 ? width : stageFrame.clientWidth;
+}
+
+function pickResponsiveLayout() {
+  const fullscreen = document.fullscreenElement === stageFrame;
+  const compact =
+    window.innerWidth <= 820 ||
+    (fullscreen && window.innerHeight > window.innerWidth) ||
+    (window.matchMedia?.("(pointer: coarse)")?.matches && window.innerWidth <= 960);
+  return compact ? MOBILE_LAYOUT : DESKTOP_LAYOUT;
+}
+
+function syncCanvasPresentation() {
+  const fullscreen = document.fullscreenElement === stageFrame;
+  const padding = fullscreen ? 24 : 0;
+  const availableWidth = fullscreen
+    ? Math.max(1, window.innerWidth - padding)
+    : Math.max(1, getStageInnerWidth());
+  const availableHeight = fullscreen
+    ? Math.max(1, window.innerHeight - padding)
+    : Number.POSITIVE_INFINITY;
+  const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+  canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+  canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
+}
+
+function syncResponsiveLayout() {
+  const nextLayout = pickResponsiveLayout();
+  currentLayoutMode = nextLayout.mode;
+  CELL_SIZE = nextLayout.cellSize;
+  BOARD_X = nextLayout.boardX;
+  BOARD_Y = nextLayout.boardY;
+  BOARD_WIDTH = BOARD_COLS * CELL_SIZE;
+  BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE;
+  PANEL_X = nextLayout.panelX;
+  PANEL_Y = nextLayout.panelY;
+  PANEL_W = nextLayout.panelW;
+  PANEL_H = nextLayout.panelH;
+
+  if (canvas.width !== nextLayout.canvasWidth || canvas.height !== nextLayout.canvasHeight) {
+    canvas.width = nextLayout.canvasWidth;
+    canvas.height = nextLayout.canvasHeight;
+  }
+  syncCanvasPresentation();
 }
 
 function createRandomSeed() {
@@ -961,6 +1043,7 @@ function drawPaperBackground() {
 }
 
 function drawFrame() {
+  const titleBarHeight = currentLayoutMode === "mobile" ? 82 : 62;
   drawRoundedRect(28, 28, canvas.width - 56, canvas.height - 56, 28);
   ctx.fillStyle = "rgba(252, 245, 224, 0.58)";
   ctx.fill();
@@ -968,7 +1051,7 @@ function drawFrame() {
   ctx.strokeStyle = COMIC_COLORS.ink;
   ctx.stroke();
 
-  drawRoundedRect(44, 44, canvas.width - 88, 62, 22);
+  drawRoundedRect(44, 44, canvas.width - 88, titleBarHeight, 22);
   ctx.fillStyle = "rgba(255, 232, 171, 0.88)";
   ctx.fill();
   ctx.lineWidth = 4;
@@ -978,11 +1061,19 @@ function drawFrame() {
   ctx.fillStyle = COMIC_COLORS.ink;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.font = '900 38px "Alegreya SC", Georgia, serif';
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '900 31px "Alegreya SC", Georgia, serif'
+      : '900 38px "Alegreya SC", Georgia, serif';
   ctx.fillText("Skarby Polskiej Ziemi", 68, 78);
 
-  ctx.font = '600 16px "Spectral", Georgia, serif';
-  ctx.fillText("Ukladaj trojki zanim zabrzmi syrena z szybu.", 536, 80);
+  if (currentLayoutMode === "mobile") {
+    ctx.font = '600 12px "Spectral", Georgia, serif';
+    wrapText("Ukladaj trojki zanim zabrzmi syrena z szybu.", 468, 58, 160, 14);
+  } else {
+    ctx.font = '600 16px "Spectral", Georgia, serif';
+    ctx.fillText("Ukladaj trojki zanim zabrzmi syrena z szybu.", 536, 80);
+  }
 }
 
 function drawBoardBase() {
@@ -1177,14 +1268,113 @@ function drawSpeechBubble(x, y, width, height, text, fill) {
   ctx.stroke();
 
   ctx.fillStyle = COMIC_COLORS.ink;
-  ctx.font = '600 17px "Spectral", Georgia, serif';
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '600 15px "Spectral", Georgia, serif'
+      : '600 17px "Spectral", Georgia, serif';
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  wrapText(text, x + 18, y + 16, width - 36, 24);
+  wrapText(text, x + 18, y + 16, width - 36, currentLayoutMode === "mobile" ? 21 : 24);
   ctx.restore();
 }
 
+function drawStatChip(x, y, width, height, label, value) {
+  drawRoundedRect(x, y, width, height, 18);
+  ctx.fillStyle = "rgba(255, 243, 208, 0.92)";
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = COMIC_COLORS.ink;
+  ctx.stroke();
+
+  ctx.fillStyle = COMIC_COLORS.ink;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = '700 14px "Alegreya SC", Georgia, serif';
+  ctx.fillText(label, x + 14, y + 12);
+  ctx.font = '900 26px "Alegreya SC", Georgia, serif';
+  ctx.fillText(String(value), x + 14, y + 34);
+}
+
+function drawMobilePanel() {
+  drawRoundedRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 28);
+  ctx.fillStyle = "rgba(248, 239, 213, 0.94)";
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = COMIC_COLORS.ink;
+  ctx.stroke();
+
+  const chipGap = 14;
+  const chipWidth = (PANEL_W - 36 * 2 - chipGap * 2) / 3;
+  const chipY = PANEL_Y + 22;
+  drawStatChip(PANEL_X + 22, chipY, chipWidth, 82, "Punkty", state.score);
+  drawStatChip(PANEL_X + 22 + chipWidth + chipGap, chipY, chipWidth, 82, "Czas", `${Math.max(0, Math.ceil(state.timeLeft / 1000))}s`);
+  drawStatChip(PANEL_X + 22 + (chipWidth + chipGap) * 2, chipY, chipWidth, 82, "Combo", `x${state.bestCombo || 1}`);
+
+  ctx.fillStyle = COMIC_COLORS.ink;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = '800 21px "Alegreya SC", Georgia, serif';
+  ctx.fillText("Postep szybu", PANEL_X + 22, PANEL_Y + 126);
+
+  const scoreRatio = clamp(state.score / TARGET_SCORE, 0, 1);
+  drawRoundedRect(PANEL_X + 22, PANEL_Y + 160, PANEL_W - 44, 20, 10);
+  ctx.fillStyle = "rgba(32, 32, 39, 0.18)";
+  ctx.fill();
+  drawRoundedRect(PANEL_X + 22, PANEL_Y + 160, (PANEL_W - 44) * scoreRatio, 20, 10);
+  ctx.fillStyle = "rgba(236, 147, 56, 0.92)";
+  ctx.fill();
+
+  const cardGap = 16;
+  const cardWidth = (PANEL_W - 44 - cardGap) / 2;
+  const cardHeight = 78;
+  let index = 0;
+  for (const type of TREASURE_TYPES) {
+    const col = index % 2;
+    const row = Math.floor(index / 2);
+    const x = PANEL_X + 22 + col * (cardWidth + cardGap);
+    const y = PANEL_Y + 206 + row * (cardHeight + 12);
+    drawRoundedRect(x, y, cardWidth, cardHeight, 18);
+    ctx.fillStyle = "rgba(255, 246, 222, 0.95)";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = COMIC_COLORS.ink;
+    ctx.stroke();
+
+    const image = assets.images.get(type.id);
+    if (image?.complete) {
+      ctx.drawImage(image, x + 14, y + 16, 34, 34);
+    }
+    ctx.fillStyle = COMIC_COLORS.ink;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = '700 13px "Spectral", Georgia, serif';
+    wrapText(type.label, x + 58, y + 12, cardWidth - 96, 16);
+    ctx.font = '900 26px "Alegreya SC", Georgia, serif';
+    ctx.textAlign = "right";
+    ctx.fillText(String(state.collected[type.id]), x + cardWidth - 14, y + 20);
+    index += 1;
+  }
+
+  drawSpeechBubble(
+    PANEL_X + 22,
+    PANEL_Y + PANEL_H - 118,
+    PANEL_W - 44,
+    86,
+    state.mode === "ready"
+      ? "Dotknij dwa sasiednie pola lub przesun palcem, aby zamienic skarby."
+      : state.mode === "gameover"
+        ? "Dotknij Nowa fedra lub R i zacznij kolejna szychte."
+        : state.message,
+    "rgba(255, 242, 202, 0.94)",
+  );
+}
+
 function drawSidePanel() {
+  if (currentLayoutMode === "mobile") {
+    drawMobilePanel();
+    return;
+  }
+
   drawRoundedRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 28);
   ctx.fillStyle = "rgba(248, 239, 213, 0.92)";
   ctx.fill();
@@ -1251,36 +1441,58 @@ function drawSidePanel() {
 }
 
 function drawReadyOverlay() {
+  const bubbleWidth = currentLayoutMode === "mobile" ? BOARD_WIDTH - 48 : 404;
+  const bubbleX = currentLayoutMode === "mobile" ? BOARD_X + 24 : BOARD_X + 86;
+  const bubbleY = currentLayoutMode === "mobile" ? BOARD_Y + 96 : BOARD_Y + 118;
   ctx.save();
   ctx.fillStyle = "rgba(17, 22, 28, 0.38)";
   ctx.fillRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT);
   drawSpeechBubble(
-    BOARD_X + 86,
-    BOARD_Y + 118,
-    404,
-    154,
-    "Kliknij dwa sasiednie skarby, zeby je zamienic. Strzalki ruszaja kursorem, Enter lub Spacja wybieraja pole, F przelacza pelny ekran.",
+    bubbleX,
+    bubbleY,
+    bubbleWidth,
+    currentLayoutMode === "mobile" ? 146 : 154,
+    currentLayoutMode === "mobile"
+      ? "Dotknij dwa sasiednie skarby lub wykonaj krotki swipe. Strzalki i Enter dalej dzialaja, a F wlacza fullscreen."
+      : "Kliknij dwa sasiednie skarby, zeby je zamienic. Strzalki ruszaja kursorem, Enter lub Spacja wybieraja pole, F przelacza pelny ekran.",
     "rgba(255, 238, 187, 0.97)",
   );
   ctx.fillStyle = "#fff8e6";
-  ctx.font = '900 54px "Alegreya SC", Georgia, serif';
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '900 46px "Alegreya SC", Georgia, serif'
+      : '900 54px "Alegreya SC", Georgia, serif';
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("Start szychu", BOARD_X + BOARD_WIDTH / 2, BOARD_Y + 380);
-  ctx.font = '700 22px "Spectral", Georgia, serif';
-  ctx.fillText("Cel: 4500 punktow przed syrena.", BOARD_X + BOARD_WIDTH / 2, BOARD_Y + 430);
+  ctx.fillText(
+    "Start szychu",
+    BOARD_X + BOARD_WIDTH / 2,
+    currentLayoutMode === "mobile" ? BOARD_Y + 420 : BOARD_Y + 380,
+  );
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '700 24px "Spectral", Georgia, serif'
+      : '700 22px "Spectral", Georgia, serif';
+  ctx.fillText(
+    "Cel: 4500 punktow przed syrena.",
+    BOARD_X + BOARD_WIDTH / 2,
+    currentLayoutMode === "mobile" ? BOARD_Y + 470 : BOARD_Y + 430,
+  );
   ctx.restore();
 }
 
 function drawGameOverOverlay() {
+  const bubbleWidth = currentLayoutMode === "mobile" ? BOARD_WIDTH - 64 : 384;
+  const bubbleX = currentLayoutMode === "mobile" ? BOARD_X + 32 : BOARD_X + 120;
+  const bubbleY = currentLayoutMode === "mobile" ? BOARD_Y + 108 : BOARD_Y + 128;
   ctx.save();
   ctx.fillStyle = "rgba(17, 22, 28, 0.44)";
   ctx.fillRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT);
   drawSpeechBubble(
-    BOARD_X + 120,
-    BOARD_Y + 128,
-    384,
-    168,
+    bubbleX,
+    bubbleY,
+    bubbleWidth,
+    currentLayoutMode === "mobile" ? 158 : 168,
     state.score >= TARGET_SCORE
       ? "Syrena ucichla, a magazyn pekal od skarbow. To byla wzorowa fedra."
       : "Syrena przerwala zmiane. Urobek jest dobry, ale szychtowy glod jeszcze rosnie.",
@@ -1289,10 +1501,24 @@ function drawGameOverOverlay() {
   ctx.fillStyle = "#fff8e6";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = '900 52px "Alegreya SC", Georgia, serif';
-  ctx.fillText("Koniec szychu", BOARD_X + BOARD_WIDTH / 2, BOARD_Y + 386);
-  ctx.font = '700 22px "Spectral", Georgia, serif';
-  ctx.fillText(`Wynik koncowy: ${state.score}`, BOARD_X + BOARD_WIDTH / 2, BOARD_Y + 434);
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '900 44px "Alegreya SC", Georgia, serif'
+      : '900 52px "Alegreya SC", Georgia, serif';
+  ctx.fillText(
+    "Koniec szychu",
+    BOARD_X + BOARD_WIDTH / 2,
+    currentLayoutMode === "mobile" ? BOARD_Y + 428 : BOARD_Y + 386,
+  );
+  ctx.font =
+    currentLayoutMode === "mobile"
+      ? '700 24px "Spectral", Georgia, serif'
+      : '700 22px "Spectral", Georgia, serif';
+  ctx.fillText(
+    `Wynik koncowy: ${state.score}`,
+    BOARD_X + BOARD_WIDTH / 2,
+    currentLayoutMode === "mobile" ? BOARD_Y + 476 : BOARD_Y + 434,
+  );
   ctx.restore();
 }
 
@@ -1309,10 +1535,11 @@ function render() {
   } else if (state.mode === "gameover") {
     drawGameOverOverlay();
   } else if (state.mode === "loading") {
+    const loadingWidth = currentLayoutMode === "mobile" ? BOARD_WIDTH - 96 : 360;
     drawSpeechBubble(
-      BOARD_X + 110,
-      BOARD_Y + 200,
-      360,
+      currentLayoutMode === "mobile" ? BOARD_X + 48 : BOARD_X + 110,
+      currentLayoutMode === "mobile" ? BOARD_Y + 230 : BOARD_Y + 200,
+      loadingWidth,
       110,
       "Ladujemy skarby i kredowy kontur planszy...",
       "#fff3cc",
@@ -1432,7 +1659,58 @@ window.advanceTime = async (ms) => {
   state.lastTick = performance.now();
 };
 
+function activateTouchGesture(endCell, event) {
+  const startCell = touchGesture.startCell;
+  touchGesture.active = false;
+  touchGesture.pointerId = null;
+  touchGesture.startCell = null;
+  touchGesture.suppressClickUntil = nowMs() + 420;
+  canvas.releasePointerCapture?.(event.pointerId);
+
+  if (!startCell) return;
+  if (state.mode === "ready") {
+    startGame();
+    return;
+  }
+  if (state.mode !== "playing" || state.pendingPhase) {
+    return;
+  }
+
+  if (endCell && isAdjacent(startCell, endCell)) {
+    setCursor(startCell.row, startCell.col);
+    trySwap(startCell, endCell);
+    return;
+  }
+
+  activateCell((endCell || startCell).row, (endCell || startCell).col);
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.pointerType !== "touch") return;
+  const cell = getCellAtClientPoint(event.clientX, event.clientY);
+  if (!cell) return;
+  touchGesture.active = true;
+  touchGesture.pointerId = event.pointerId;
+  touchGesture.startCell = { row: cell.row, col: cell.col };
+  canvas.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+});
+
+canvas.addEventListener("pointerup", (event) => {
+  if (!touchGesture.active || event.pointerId !== touchGesture.pointerId) return;
+  const cell = getCellAtClientPoint(event.clientX, event.clientY);
+  activateTouchGesture(cell ? { row: cell.row, col: cell.col } : null, event);
+  event.preventDefault();
+});
+
+canvas.addEventListener("pointercancel", () => {
+  touchGesture.active = false;
+  touchGesture.pointerId = null;
+  touchGesture.startCell = null;
+});
+
 canvas.addEventListener("click", (event) => {
+  if (nowMs() < touchGesture.suppressClickUntil) return;
   const cell = getCellAtClientPoint(event.clientX, event.clientY);
   if (cell) {
     activateCell(cell.row, cell.col);
@@ -1445,6 +1723,10 @@ canvas.addEventListener("mousemove", (event) => {
 });
 
 window.addEventListener("keydown", handleKeyboard);
+window.addEventListener("resize", () => {
+  syncResponsiveLayout();
+  render();
+});
 
 startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", startGame);
@@ -1452,6 +1734,7 @@ fullscreenBtn.addEventListener("click", toggleFullscreen);
 muteBtn.addEventListener("click", toggleMute);
 
 window.addEventListener("fullscreenchange", () => {
+  syncResponsiveLayout();
   pulseMessage(
     document.fullscreenElement ? "Pelny ekran aktywny." : "Powrot z pelnego ekranu.",
     1200,
@@ -1459,6 +1742,7 @@ window.addEventListener("fullscreenchange", () => {
 });
 
 async function boot() {
+  syncResponsiveLayout();
   syncButtons();
   try {
     await loadAssets();
@@ -1472,6 +1756,7 @@ async function boot() {
     pulseMessage("Czesc assetow nie doszla, ale gra rusza.", 2500);
   }
   syncButtons();
+  syncResponsiveLayout();
   render();
   requestAnimationFrame(loop);
 }

@@ -109,6 +109,8 @@ body::after {
 
 .stage-frame {
   position: relative;
+  display: grid;
+  place-items: center;
   border: 5px solid var(--ink);
   border-radius: 28px;
   padding: 16px;
@@ -131,11 +133,12 @@ body::after {
 
 #game-canvas {
   display: block;
-  width: 100%;
+  width: min(100%, 960px);
   height: auto;
   border-radius: 18px;
   background: transparent;
   image-rendering: auto;
+  touch-action: manipulation;
 }
 
 .control-strip {
@@ -182,6 +185,20 @@ body::after {
     #c7e1dc;
 }
 
+.stage-frame:fullscreen,
+.stage-frame:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  padding: 12px;
+  border-radius: 0;
+}
+
+.stage-frame:fullscreen::after,
+.stage-frame:-webkit-full-screen::after {
+  inset: 8px;
+  border-radius: 14px;
+}
+
 @media (max-width: 860px) {
   .poster-shell {
     width: min(100vw - 18px, 1120px);
@@ -201,7 +218,63 @@ body::after {
   }
 
   .comic-btn {
-    flex: 1 1 180px;
+    flex: 1 1 calc(50% - 10px);
     justify-content: center;
+    min-height: 50px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .poster-shell {
+    width: min(100vw - 10px, 1120px);
+    padding-top: 10px;
+    padding-bottom: 24px;
+  }
+
+  .masthead {
+    margin-bottom: 14px;
+    padding: 16px 14px 12px;
+    border-radius: 20px;
+  }
+
+  .masthead::after {
+    width: 84px;
+    height: 32px;
+    right: 10px;
+    top: -10px;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+  }
+
+  .lede {
+    margin-top: 10px;
+    font-size: 0.95rem;
+  }
+
+  .control-strip {
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .comic-btn {
+    flex-basis: calc(50% - 6px);
+    min-height: 46px;
+    border-width: 3px;
+    box-shadow: 0 5px 0 rgba(31, 31, 36, 0.16);
+  }
+
+  .stage-frame {
+    border-radius: 20px;
+    border-width: 4px;
+    padding: 6px;
+  }
+
+  .stage-frame::after {
+    inset: 6px;
   }
 }
