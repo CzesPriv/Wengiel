@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "powershell -ExecutionPolicy Bypass -File ./start-wengiel.ps1"
+    "start": "node server.js",
+    "start:windows-path-fix": "powershell -ExecutionPolicy Bypass -File ./start-wengiel.ps1"
   },
   "devDependencies": {
     "playwright": "^1.58.2"

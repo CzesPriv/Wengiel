@@ -75,6 +75,10 @@ const ANTHEM_SEQUENCE = [
   { note: "F4", beats: 1 },
   { note: null, beats: 1 },
 ];
+const SEARCH_PARAMS = new URLSearchParams(window.location.search);
+const CONFIGURED_TEST_SEED = parseSeedValue(
+  SEARCH_PARAMS.get("seed") ?? window.__WENGIEL_TEST_SEED__,
+);
 
 const audioState = {
   ctx: null,
@@ -159,6 +163,8 @@ const state = {
   lastTick: performance.now(),
   largestMatch: 0,
   rngState: 0x1a2b3c4d,
+  roundSeed: null,
+  externalTimeControl: false,
 };
 
 function createEmptyCollected() {
@@ -167,6 +173,31 @@ function createEmptyCollected() {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function parseSeedValue(raw) {
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return raw >>> 0;
+  }
+  if (typeof raw === "string") {
+    const parsed = raw.trim().startsWith("0x")
+      ? Number.parseInt(raw, 16)
+      : Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed >>> 0 : null;
+  }
+  return null;
+}
+
+function createRandomSeed() {
+  if (window.crypto?.getRandomValues) {
+    return window.crypto.getRandomValues(new Uint32Array(1))[0];
+  }
+  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
+
+function createRoundSeed() {
+  return CONFIGURED_TEST_SEED ?? createRandomSeed();
 }
 
 function nowMs() {
@@ -554,6 +585,12 @@ function pulseMessage(text, duration = 1600) {
   state.messageTimer = duration;
 }
 
+function buildBoardForSeed(seed) {
+  state.roundSeed = seed >>> 0;
+  resetRandom(state.roundSeed);
+  return buildFreshBoard();
+}
+
 function shuffleBoard() {
   state.board = buildFreshBoard();
   state.selected = null;
@@ -578,10 +615,13 @@ function toggleMute() {
 }
 
 function startGame() {
-  resetRandom(0x5eed1234);
+  const reusePreviewBoard =
+    state.mode === "ready" && state.board.length > 0 && state.pendingPhase === null;
   ensureAudioSystem();
   state.mode = "playing";
-  state.board = buildFreshBoard();
+  if (!reusePreviewBoard) {
+    state.board = buildBoardForSeed(createRoundSeed());
+  }
   state.score = 0;
   state.timeLeft = ROUND_TIME_MS;
   state.selected = null;
@@ -1312,6 +1352,11 @@ function tick(deltaMs) {
 }
 
 function loop(now) {
+  if (state.externalTimeControl) {
+    state.lastTick = now;
+    requestAnimationFrame(loop);
+    return;
+  }
   const delta = clamp(now - state.lastTick, 0, 48);
   state.lastTick = now;
   tick(delta);
@@ -1367,6 +1412,7 @@ function renderGameToText() {
       audioActive: audioState.active,
       muted: audioState.muted,
     },
+    seed: state.roundSeed,
     collected: state.collected,
     board: state.board.map((row) => row.map((cell) => (cell ? cell.id : null))),
     message: state.message,
@@ -1376,12 +1422,14 @@ function renderGameToText() {
 
 window.render_game_to_text = renderGameToText;
 window.advanceTime = async (ms) => {
+  state.externalTimeControl = true;
   const steps = Math.max(1, Math.round(ms / FRAME_MS));
   const stepSize = ms / steps;
   for (let index = 0; index < steps; index += 1) {
     tick(stepSize);
   }
   render();
+  state.lastTick = performance.now();
 };
 
 canvas.addEventListener("click", (event) => {
@@ -1415,13 +1463,12 @@ async function boot() {
   try {
     await loadAssets();
     state.mode = "ready";
-    resetRandom(0x5eed1234);
-    state.board = buildFreshBoard();
+    state.board = buildBoardForSeed(createRoundSeed());
     pulseMessage("Wcisnij Start szychu.", 1800);
   } catch (error) {
     console.error(error);
     state.mode = "ready";
-    state.board = buildFreshBoard();
+    state.board = buildBoardForSeed(createRoundSeed());
     pulseMessage("Czesc assetow nie doszla, ale gra rusza.", 2500);
   }
   syncButtons();
