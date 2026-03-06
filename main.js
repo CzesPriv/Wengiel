@@ -105,6 +105,8 @@ const SEARCH_PARAMS = new URLSearchParams(window.location.search);
 const CONFIGURED_TEST_SEED = parseSeedValue(
   SEARCH_PARAMS.get("seed") ?? window.__WENGIEL_TEST_SEED__,
 );
+const LARGE_COMBO_VOICE_SRC = "./assets/audio/jeszcze-polska.wav";
+const LARGE_COMBO_VOICE_LINE = "Jeszcze Polska nie zginęła";
 
 const audioState = {
   ctx: null,
@@ -118,6 +120,8 @@ const audioState = {
   muted: false,
   unlockPromise: null,
   primed: false,
+  lastComboVoiceMode: null,
+  lastComboVoiceAt: 0,
   speechCooldownUntil: 0,
 };
 
@@ -166,6 +170,9 @@ const tileMetaById = Object.fromEntries(TREASURE_TYPES.map((item) => [item.id, i
 const assets = {
   images: new Map(),
   background: null,
+  comboVoiceBytes: null,
+  comboVoiceBuffer: null,
+  comboVoiceDecodePromise: null,
 };
 
 const state = {
@@ -412,6 +419,44 @@ function markAudioActive() {
   return true;
 }
 
+async function ensureComboVoiceBuffer() {
+  if (!audioState.ctx || !assets.comboVoiceBytes) return null;
+  if (assets.comboVoiceBuffer) return assets.comboVoiceBuffer;
+  if (!assets.comboVoiceDecodePromise) {
+    const bytes = assets.comboVoiceBytes.slice(0);
+    assets.comboVoiceDecodePromise = audioState.ctx
+      .decodeAudioData(bytes)
+      .then((buffer) => {
+        assets.comboVoiceBuffer = buffer;
+        return buffer;
+      })
+      .catch((error) => {
+        console.warn("Combo voice decode failed", error);
+        return null;
+      })
+      .finally(() => {
+        assets.comboVoiceDecodePromise = null;
+      });
+  }
+  return assets.comboVoiceDecodePromise;
+}
+
+function playComboVoiceBuffer() {
+  if (!audioState.ctx || audioState.ctx.state !== "running") return false;
+  if (!assets.comboVoiceBuffer || !audioState.masterGain) return false;
+
+  const source = audioState.ctx.createBufferSource();
+  const gain = audioState.ctx.createGain();
+  gain.gain.value = 1.18;
+  source.buffer = assets.comboVoiceBuffer;
+  source.connect(gain);
+  gain.connect(audioState.masterGain);
+  source.start(audioState.ctx.currentTime + 0.02);
+  audioState.lastComboVoiceMode = "buffer";
+  audioState.lastComboVoiceAt = nowMs();
+  return true;
+}
+
 async function primeAudioFromGesture() {
   if (!ensureAudioSystem() || !audioState.ctx) return false;
   if (audioState.ctx.state !== "running") {
@@ -426,7 +471,11 @@ async function primeAudioFromGesture() {
     await audioState.unlockPromise;
   }
   primeAudioHardware();
-  return markAudioActive();
+  const active = markAudioActive();
+  if (active) {
+    void ensureComboVoiceBuffer();
+  }
+  return active;
 }
 
 function syncAudioMix() {
@@ -518,20 +567,46 @@ function playFallSound(maxDrop) {
 
 function speakLargeCombo() {
   if (audioState.muted) return;
-  if (!("speechSynthesis" in window)) return;
   if (nowMs() < audioState.speechCooldownUntil) return;
   audioState.speechCooldownUntil = nowMs() + 3200;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("Jeszcze Polska nie zginęła");
-    utterance.lang = "pl-PL";
-    utterance.rate = 0.92;
-    utterance.pitch = 0.95;
-    utterance.volume = 1;
-    window.speechSynthesis.speak(utterance);
-  } catch (error) {
-    console.warn("Speech synthesis failed", error);
+  if (playComboVoiceBuffer()) return;
+
+  const fallbackSpeech = () => {
+    if (!("speechSynthesis" in window)) return;
+    try {
+      const voices = window.speechSynthesis.getVoices?.() || [];
+      const polishVoice =
+        voices.find((voice) => voice.lang?.toLowerCase().startsWith("pl")) || null;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume?.();
+      const utterance = new SpeechSynthesisUtterance(LARGE_COMBO_VOICE_LINE);
+      utterance.lang = "pl-PL";
+      utterance.rate = 0.92;
+      utterance.pitch = 0.95;
+      utterance.volume = 1;
+      if (polishVoice) {
+        utterance.voice = polishVoice;
+      }
+      window.speechSynthesis.speak(utterance);
+      audioState.lastComboVoiceMode = "speech";
+      audioState.lastComboVoiceAt = nowMs();
+    } catch (error) {
+      console.warn("Speech synthesis failed", error);
+    }
+  };
+
+  if (assets.comboVoiceBytes && audioState.ctx?.state === "running") {
+    void ensureComboVoiceBuffer().then((buffer) => {
+      if (buffer && !audioState.muted) {
+        playComboVoiceBuffer();
+        return;
+      }
+      fallbackSpeech();
+    });
+    return;
   }
+
+  fallbackSpeech();
 }
 
 function spawnStarShower(chain, removed) {
@@ -619,56 +694,55 @@ function randomTileId(exclusions = []) {
 }
 
 function findMatches(board) {
-  const cells = new Set();
+  const matchedCells = [];
   const groups = [];
+  const visited = new Set();
 
   for (let row = 0; row < BOARD_ROWS; row += 1) {
-    let runStart = 0;
-    for (let col = 1; col <= BOARD_COLS; col += 1) {
-      const current = col < BOARD_COLS ? board[row][col]?.id : null;
-      const previous = board[row][col - 1]?.id;
-      if (current !== previous) {
-        const runLength = col - runStart;
-        if (previous && runLength >= 3) {
-          const group = [];
-          for (let c = runStart; c < col; c += 1) {
-            const key = `${row}:${c}`;
-            cells.add(key);
-            group.push({ row, col: c, id: previous });
-          }
-          groups.push(group);
-        }
-        runStart = col;
-      }
-    }
-  }
+    for (let col = 0; col < BOARD_COLS; col += 1) {
+      const startCell = board[row]?.[col];
+      const startKey = `${row}:${col}`;
+      if (!startCell || visited.has(startKey)) continue;
 
-  for (let col = 0; col < BOARD_COLS; col += 1) {
-    let runStart = 0;
-    for (let row = 1; row <= BOARD_ROWS; row += 1) {
-      const current = row < BOARD_ROWS ? board[row][col]?.id : null;
-      const previous = board[row - 1][col]?.id;
-      if (current !== previous) {
-        const runLength = row - runStart;
-        if (previous && runLength >= 3) {
-          const group = [];
-          for (let r = runStart; r < row; r += 1) {
-            const key = `${r}:${col}`;
-            cells.add(key);
-            group.push({ row: r, col, id: previous });
+      const group = [];
+      const stack = [{ row, col }];
+      visited.add(startKey);
+
+      while (stack.length) {
+        const current = stack.pop();
+        const currentCell = board[current.row]?.[current.col];
+        if (!currentCell) continue;
+
+        group.push({ row: current.row, col: current.col, id: currentCell.id });
+
+        const neighbors = [
+          { row: current.row - 1, col: current.col },
+          { row: current.row + 1, col: current.col },
+          { row: current.row, col: current.col - 1 },
+          { row: current.row, col: current.col + 1 },
+        ];
+
+        for (const neighbor of neighbors) {
+          if (!isInsideBoard(neighbor.row, neighbor.col)) continue;
+          const neighborCell = board[neighbor.row]?.[neighbor.col];
+          const neighborKey = `${neighbor.row}:${neighbor.col}`;
+          if (!neighborCell || neighborCell.id !== startCell.id || visited.has(neighborKey)) {
+            continue;
           }
-          groups.push(group);
+          visited.add(neighborKey);
+          stack.push(neighbor);
         }
-        runStart = row;
+      }
+
+      if (group.length >= 3) {
+        groups.push(group);
+        matchedCells.push(...group);
       }
     }
   }
 
   return {
-    cells: [...cells].map((key) => {
-      const [row, col] = key.split(":").map(Number);
-      return { row, col, id: board[row][col]?.id || null };
-    }),
+    cells: matchedCells,
     groups,
   };
 }
@@ -706,13 +780,12 @@ function buildFreshBoard() {
     for (let row = 0; row < BOARD_ROWS; row += 1) {
       const rowItems = [];
       for (let col = 0; col < BOARD_COLS; col += 1) {
-        const exclusions = [];
-        if (col >= 2 && rowItems[col - 1]?.id === rowItems[col - 2]?.id) {
-          exclusions.push(rowItems[col - 1].id);
-        }
-        if (row >= 2 && board[row - 1][col]?.id === board[row - 2][col]?.id) {
-          exclusions.push(board[row - 1][col].id);
-        }
+        const draftBoard = board.map((existingRow) => existingRow.slice());
+        draftBoard[row] = rowItems.slice();
+        const exclusions = TILE_IDS.filter((id) => {
+          draftBoard[row][col] = { id };
+          return findMatches(draftBoard).cells.some((cell) => cell.row === row && cell.col === col);
+        });
         rowItems.push(makeCell(randomTileId(exclusions)));
       }
       board.push(rowItems);
@@ -773,7 +846,7 @@ function startGame() {
   state.combo = 0;
   state.bestCombo = 0;
   state.collected = createEmptyCollected();
-  state.message = "Fedruj trzy lub wiecej skarbow.";
+  state.message = "Fedruj grupy 3+ sasiednich skarbow.";
   state.messageTimer = 2200;
   state.invalidPulse = 0;
   state.shake = 0;
@@ -932,7 +1005,7 @@ function trySwap(first, second) {
   if (!matches.cells.length) {
     state.invalidPulse = 220;
     state.selected = null;
-    pulseMessage("Ta zyly nie lacza sie w trojke.", 1100);
+    pulseMessage("Te skarby nie lacza sie w grupe 3+.", 1100);
     return;
   }
 
@@ -1131,10 +1204,10 @@ function drawFrame() {
 
   if (currentLayoutMode === "mobile") {
     ctx.font = '600 12px "Spectral", Georgia, serif';
-    wrapText("Ukladaj trojki zanim zabrzmi syrena z szybu.", 468, 58, 160, 14);
+    wrapText("Lacz grupy skarbow zanim zabrzmi syrena z szybu.", 468, 58, 160, 14);
   } else {
     ctx.font = '600 16px "Spectral", Georgia, serif';
-    ctx.fillText("Ukladaj trojki zanim zabrzmi syrena z szybu.", 536, 80);
+    ctx.fillText("Lacz grupy skarbow zanim zabrzmi syrena z szybu.", 512, 80);
   }
 }
 
@@ -1662,6 +1735,21 @@ async function loadImage(key, src) {
 
 async function loadAssets() {
   const jobs = TREASURE_TYPES.map((item) => loadImage(item.id, item.sprite));
+  jobs.push(
+    fetch(LARGE_COMBO_VOICE_SRC)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((bytes) => {
+        assets.comboVoiceBytes = bytes;
+      })
+      .catch((error) => {
+        console.warn("Combo voice asset failed", error);
+      }),
+  );
   const background = new Image();
   background.src = "./assets/paper-texture.jpg";
   background.addEventListener("load", () => {
@@ -1700,6 +1788,10 @@ function renderGameToText() {
       stars: state.starShower.length,
       audioActive: audioState.active,
       muted: audioState.muted,
+      comboVoiceLoaded: Boolean(assets.comboVoiceBytes),
+      comboVoiceReady: Boolean(assets.comboVoiceBuffer),
+      comboVoiceMode: audioState.lastComboVoiceMode,
+      comboVoiceAt: audioState.lastComboVoiceAt,
     },
     seed: state.roundSeed,
     collected: state.collected,
