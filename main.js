@@ -7,6 +7,11 @@ const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const muteBtn = document.querySelector("#mute-btn");
 const stageFrame = document.querySelector(".stage-frame");
 const controlStrip = document.querySelector(".control-strip");
+const languageLabel = document.querySelector("#language-label");
+const languageSelect = document.querySelector("#language-select");
+const eyebrowText = document.querySelector("#eyebrow-text");
+const ledeText = document.querySelector("#lede-text");
+const pageTitle = document.querySelector("title");
 
 const BOARD_COLS = 8;
 const BOARD_ROWS = 8;
@@ -207,6 +212,232 @@ const touchGesture = {
   startCell: null,
   suppressClickUntil: 0,
 };
+const LANGUAGE_STORAGE_KEY = "wengiel-language";
+const LANGUAGE_OPTIONS = ["pl", "en", "zh-CN"];
+const TRANSLATIONS = {
+  pl: {
+    meta: {
+      title: "Wengiel",
+      eyebrow: "Polska ziemia. Francuski kadr. Match-3 pod ziemia.",
+      lede:
+        "Kreskowkowa ukladanka o skarbach Polski: bursztynie, miedzi, krzemieniu pasiastym, soli i dwoch odcieniach wegla.",
+      canvasAria: "Gra Wengiel",
+    },
+    controls: {
+      start: "Start szychu",
+      restart: "Nowa fedra",
+      fullscreen: "Pelny ekran [F]",
+      mute: "Mute [M]",
+      unmute: "Unmute [M]",
+      language: "Jezyk",
+    },
+    treasures: {
+      "black-coal": "Wegiel kamienny",
+      amber: "Bursztyn",
+      lignite: "Wegiel brunatny",
+      copper: "Miedz",
+      salt: "Sol kamienna",
+      flint: "Krzemien pasiasty",
+    },
+    messages: {
+      loading: "Ladujemy plansze...",
+      shuffle: "Nowa zyla! Plansza przetasowana.",
+      muted: "Dzwiek wyciszony.",
+      unmuted: "Dzwiek wlaczony.",
+      ready: "Fedruj grupy 3+ sasiednich skarbow.",
+      win: "Syrena! Dobra zmiana.",
+      lose: "Syrena! Koniec szychu.",
+      cascade: ({ chain }) => `Kaskada x${chain}!`,
+      bigCombo: 'Duze combo! "Jeszcze Polska nie zginęła!"',
+      invalid: "Te skarby nie lacza sie w grupe 3+.",
+      cascadeStart: "Fedruj! Kaskada ruszyla.",
+      promptStart: "Wcisnij Start szychu.",
+      assetFallback: "Czesc assetow nie doszla, ale gra rusza.",
+      fullscreenOn: "Pelny ekran aktywny.",
+      fullscreenOff: "Powrot z pelnego ekranu.",
+      selected: ({ label }) => `${label} zaznaczony.`,
+    },
+    canvas: {
+      title: "Skarby Polskiej Ziemi",
+      subtitle: "Lacz grupy skarbow zanim zabrzmi syrena z szybu.",
+      points: "Punkty",
+      time: "Czas",
+      combo: "Combo",
+      moves: "Ruchy",
+      bestCascade: "Najlepsza kaskada",
+      biggestHaul: "Najwiekszy urobek",
+      progress: "Postep szybu",
+      scoreShaft: "Szyb punktow",
+      warehouse: "Magazyn",
+      readyMobile: "Dotknij dwa sasiednie pola lub przesun palcem, aby polaczyc 3+ sasiednie skarby.",
+      readyMobilePanel: "Dotknij dwa sasiednie pola lub przesun palcem, aby zamienic skarby.",
+      readyDesktop: "Kliknij Start szychu albo nacisnij spacje. Potem lacz 3+ sasiednie skarby.",
+      instructionsMobile:
+        "Dotknij dwa sasiednie skarby lub wykonaj krotki swipe. Strzalki i Enter dalej dzialaja, a F wlacza fullscreen.",
+      instructionsDesktop:
+        "Kliknij dwa sasiednie skarby, zeby je zamienic. Strzalki ruszaja kursorem, Enter lub Spacja wybieraja pole, F przelacza pelny ekran.",
+      startOverlay: "Start szychu",
+      goalOverlay: ({ target }) => `Cel: ${target} punktow przed syrena.`,
+      gameOverTitle: "Koniec szychu",
+      gameOverWin: "Syrena ucichla, a magazyn pekal od skarbow. To byla wzorowa fedra.",
+      gameOverLose: "Syrena przerwala zmiane. Urobek jest dobry, ale szychtowy glod jeszcze rosnie.",
+      loadingOverlay: "Ladujemy skarby i kredowy kontur planszy...",
+      playAgainMobile: "Dotknij Nowa fedra lub R i zacznij kolejna szychte.",
+      playAgainDesktop: "Kliknij Nowa fedra lub R i pogon syrene jeszcze raz.",
+      targetLine: ({ target }) => `Cel: ${target}`,
+      pointsLine: ({ score }) => `Punkty: ${score}`,
+      finalScoreLine: ({ score }) => `Wynik koncowy: ${score}`,
+    },
+  },
+  en: {
+    meta: {
+      title: "Wengiel",
+      eyebrow: "Polish soil. Franco-Belgian frame. Match-3 underground.",
+      lede:
+        "A cartoon puzzle about Poland's treasures: amber, copper, striped flint, rock salt, and two shades of coal.",
+      canvasAria: "Wengiel game",
+    },
+    controls: {
+      start: "Start Shift",
+      restart: "New Shift",
+      fullscreen: "Fullscreen [F]",
+      mute: "Mute [M]",
+      unmute: "Unmute [M]",
+      language: "Language",
+    },
+    treasures: {
+      "black-coal": "Hard Coal",
+      amber: "Amber",
+      lignite: "Lignite",
+      copper: "Copper",
+      salt: "Rock Salt",
+      flint: "Striped Flint",
+    },
+    messages: {
+      loading: "Loading the board...",
+      shuffle: "Fresh vein! The board has been reshuffled.",
+      muted: "Sound muted.",
+      unmuted: "Sound on.",
+      ready: "Match 3 or more neighboring treasures.",
+      win: "Siren! Fine shift.",
+      lose: "Siren! End of shift.",
+      cascade: ({ chain }) => `Cascade x${chain}!`,
+      bigCombo: 'Big combo! "Jeszcze Polska nie zginęła!"',
+      invalid: "Those treasures do not form a 3+ neighboring group.",
+      cascadeStart: "Dig in! The cascade has started.",
+      promptStart: "Press Start Shift.",
+      assetFallback: "Some assets are missing, but the game can start.",
+      fullscreenOn: "Fullscreen active.",
+      fullscreenOff: "Left fullscreen.",
+      selected: ({ label }) => `${label} selected.`,
+    },
+    canvas: {
+      title: "Treasures of Polish Soil",
+      subtitle: "Link treasure groups before the shaft siren howls.",
+      points: "Score",
+      time: "Time",
+      combo: "Combo",
+      moves: "Moves",
+      bestCascade: "Best Cascade",
+      biggestHaul: "Biggest Haul",
+      progress: "Shaft Progress",
+      scoreShaft: "Score Shaft",
+      warehouse: "Stockpile",
+      readyMobile: "Tap two neighboring tiles or swipe to link 3+ neighboring treasures.",
+      readyMobilePanel: "Tap two neighboring tiles or swipe to swap treasures.",
+      readyDesktop: "Click Start Shift or press Space. Then link 3+ neighboring treasures.",
+      instructionsMobile:
+        "Tap two neighboring treasures or use a short swipe. Arrow keys and Enter still work, and F toggles fullscreen.",
+      instructionsDesktop:
+        "Click two neighboring treasures to swap them. Arrow keys move the cursor, Enter or Space selects a tile, and F toggles fullscreen.",
+      startOverlay: "Start Shift",
+      goalOverlay: ({ target }) => `Goal: ${target} points before the siren.`,
+      gameOverTitle: "Shift Over",
+      gameOverWin: "The siren faded and the stockpile burst with treasure. A textbook shift.",
+      gameOverLose: "The siren cut the shift short. The haul is solid, but the hunger for ore remains.",
+      loadingOverlay: "Loading treasures and the chalk-outline board...",
+      playAgainMobile: "Tap New Shift or press R to start another shift.",
+      playAgainDesktop: "Click New Shift or press R to chase the siren once more.",
+      targetLine: ({ target }) => `Goal: ${target}`,
+      pointsLine: ({ score }) => `Score: ${score}`,
+      finalScoreLine: ({ score }) => `Final score: ${score}`,
+    },
+  },
+  "zh-CN": {
+    meta: {
+      title: "Wengiel",
+      eyebrow: "波兰大地，法漫画框，地下三消。",
+      lede: "一款关于波兰宝藏的漫画风三消：琥珀、铜、条纹燧石、岩盐，以及两种煤。",
+      canvasAria: "Wengiel 游戏",
+    },
+    controls: {
+      start: "开始班次",
+      restart: "重新开采",
+      fullscreen: "全屏 [F]",
+      mute: "静音 [M]",
+      unmute: "取消静音 [M]",
+      language: "语言",
+    },
+    treasures: {
+      "black-coal": "烟煤",
+      amber: "琥珀",
+      lignite: "褐煤",
+      copper: "铜矿",
+      salt: "岩盐",
+      flint: "条纹燧石",
+    },
+    messages: {
+      loading: "正在加载棋盘...",
+      shuffle: "新矿脉！棋盘已重新洗牌。",
+      muted: "声音已静音。",
+      unmuted: "声音已开启。",
+      ready: "请把 3 个或更多相邻宝藏连成一组。",
+      win: "汽笛响起！这班干得漂亮。",
+      lose: "汽笛响起！本班结束。",
+      cascade: ({ chain }) => `连锁 x${chain}！`,
+      bigCombo: '超大连击！“Jeszcze Polska nie zginęła!”',
+      invalid: "这些宝藏没有连成 3+ 的相邻组合。",
+      cascadeStart: "开采吧！连锁开始了。",
+      promptStart: "点击“开始班次”。",
+      assetFallback: "部分素材缺失，但游戏仍可开始。",
+      fullscreenOn: "已进入全屏。",
+      fullscreenOff: "已退出全屏。",
+      selected: ({ label }) => `已选中：${label}`,
+    },
+    canvas: {
+      title: "波兰大地的宝藏",
+      subtitle: "在矿井警报响起前，把相邻宝藏连成组合。",
+      points: "分数",
+      time: "时间",
+      combo: "连击",
+      moves: "步数",
+      bestCascade: "最佳连锁",
+      biggestHaul: "最大收获",
+      progress: "矿井进度",
+      scoreShaft: "得分井",
+      warehouse: "仓库",
+      readyMobile: "轻点两个相邻格子或滑动手指，把 3 个以上相邻宝藏连成组合。",
+      readyMobilePanel: "轻点两个相邻格子或滑动手指来交换宝藏。",
+      readyDesktop: "点击“开始班次”或按空格，然后把 3 个以上相邻宝藏连成组合。",
+      instructionsMobile:
+        "轻点两个相邻宝藏或短滑交换。方向键和 Enter 仍可使用，F 可切换全屏。",
+      instructionsDesktop:
+        "点击两个相邻宝藏进行交换。方向键移动光标，Enter 或空格选择格子，F 切换全屏。",
+      startOverlay: "开始班次",
+      goalOverlay: ({ target }) => `目标：在警报响起前拿到 ${target} 分。`,
+      gameOverTitle: "班次结束",
+      gameOverWin: "警报渐息，仓库里堆满了宝藏。这是一班模范开采。",
+      gameOverLose: "警报打断了本班。收获不错，但矿脉的饥渴仍在。",
+      loadingOverlay: "正在加载宝藏与粉笔线棋盘...",
+      playAgainMobile: "轻点“重新开采”或按 R 开始下一班。",
+      playAgainDesktop: "点击“重新开采”或按 R 再来一班。",
+      targetLine: ({ target }) => `目标：${target}`,
+      pointsLine: ({ score }) => `分数：${score}`,
+      finalScoreLine: ({ score }) => `最终分数：${score}`,
+    },
+  },
+};
+let currentLanguage = "pl";
 
 function createEmptyCollected() {
   return Object.fromEntries(TILE_IDS.map((id) => [id, 0]));
@@ -229,6 +460,52 @@ function parseSeedValue(raw) {
   }
   return null;
 }
+
+function normalizeLanguage(raw) {
+  if (!raw) return "pl";
+  if (raw.startsWith("zh")) return "zh-CN";
+  if (raw.startsWith("en")) return "en";
+  return "pl";
+}
+
+function resolveInitialLanguage() {
+  try {
+    const stored = window.localStorage?.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored && LANGUAGE_OPTIONS.includes(stored)) {
+      return stored;
+    }
+  } catch {}
+  return normalizeLanguage((navigator.languages && navigator.languages[0]) || navigator.language || "pl");
+}
+
+function t(path, params = {}) {
+  const source = TRANSLATIONS[currentLanguage] || TRANSLATIONS.pl;
+  const value = path.split(".").reduce((acc, part) => acc?.[part], source);
+  if (typeof value === "function") {
+    return value(params);
+  }
+  if (typeof value === "string") {
+    return value.replace(/\{(\w+)\}/g, (_, key) => params[key] ?? "");
+  }
+  return path;
+}
+
+function getTreasureLabel(id) {
+  return t(`treasures.${id}`);
+}
+
+function syncStaticText() {
+  document.documentElement.lang = currentLanguage;
+  if (pageTitle) pageTitle.textContent = t("meta.title");
+  if (eyebrowText) eyebrowText.textContent = t("meta.eyebrow");
+  if (ledeText) ledeText.textContent = t("meta.lede");
+  if (canvas) canvas.setAttribute("aria-label", t("meta.canvasAria"));
+  if (languageLabel) languageLabel.textContent = t("controls.language");
+  if (languageSelect) languageSelect.value = currentLanguage;
+}
+
+currentLanguage = resolveInitialLanguage();
+state.message = t("messages.loading");
 
 function getStageInnerWidth() {
   const styles = window.getComputedStyle(stageFrame);
@@ -680,7 +957,7 @@ function finalizeBoardAfterFall(chain) {
   snapFallingTiles();
   const matches = findMatches(state.board);
   if (matches.cells.length) {
-    pulseMessage(`Kaskada x${chain + 1}!`, 1200);
+    pulseMessage(t("messages.cascade", { chain: chain + 1 }), 1200);
     queueMatches(matches, chain + 1);
     return;
   }
@@ -716,7 +993,6 @@ function findMatches(board) {
         const current = stack.pop();
         const currentCell = board[current.row]?.[current.col];
         if (!currentCell) continue;
-
         group.push({ row: current.row, col: current.col, id: currentCell.id });
 
         const neighbors = [
@@ -813,14 +1089,36 @@ function buildBoardForSeed(seed) {
 function shuffleBoard() {
   state.board = buildFreshBoard();
   state.selected = null;
-  pulseMessage("Nowa zyla! Plansza przetasowana.", 1700);
+  pulseMessage(t("messages.shuffle"), 1700);
 }
 
 function syncButtons() {
   startBtn.hidden = state.mode !== "ready";
   restartBtn.hidden = state.mode === "loading";
   restartBtn.disabled = state.mode === "loading";
-  muteBtn.textContent = audioState.muted ? "Unmute [M]" : "Mute [M]";
+  startBtn.textContent = t("controls.start");
+  restartBtn.textContent = t("controls.restart");
+  fullscreenBtn.textContent = t("controls.fullscreen");
+  muteBtn.textContent = audioState.muted ? t("controls.unmute") : t("controls.mute");
+  syncStaticText();
+}
+
+function setLanguage(nextLanguage) {
+  const normalized = normalizeLanguage(nextLanguage);
+  if (!LANGUAGE_OPTIONS.includes(normalized)) return;
+  currentLanguage = normalized;
+  try {
+    window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+  } catch {}
+  if (state.mode === "loading") {
+    state.message = t("messages.loading");
+  } else if (state.mode === "ready") {
+    state.message = t("messages.ready");
+  } else if (state.mode === "gameover") {
+    state.message = state.score >= TARGET_SCORE ? t("messages.win") : t("messages.lose");
+  }
+  syncButtons();
+  render();
 }
 
 function toggleMute() {
@@ -829,7 +1127,7 @@ function toggleMute() {
   if (audioState.muted && "speechSynthesis" in window) {
     window.speechSynthesis.cancel();
   }
-  pulseMessage(audioState.muted ? "Dzwiek wyciszony." : "Dzwiek wlaczony.", 1200);
+  pulseMessage(audioState.muted ? t("messages.muted") : t("messages.unmuted"), 1200);
   syncButtons();
 }
 
@@ -850,7 +1148,7 @@ function startGame() {
   state.combo = 0;
   state.bestCombo = 0;
   state.collected = createEmptyCollected();
-  state.message = "Fedruj grupy 3+ sasiednich skarbow.";
+  state.message = t("messages.ready");
   state.messageTimer = 2200;
   state.invalidPulse = 0;
   state.shake = 0;
@@ -866,10 +1164,7 @@ function endGame() {
   state.mode = "gameover";
   state.pendingPhase = null;
   state.selected = null;
-  pulseMessage(
-    state.score >= TARGET_SCORE ? "Syrena! Dobra zmiana." : "Syrena! Koniec szychu.",
-    3200,
-  );
+  pulseMessage(state.score >= TARGET_SCORE ? t("messages.win") : t("messages.lose"), 3200);
   syncButtons();
 }
 
@@ -934,7 +1229,7 @@ function settleBoardAfterClear(chain) {
   playMatchSound(removed, chain, largeCombo);
 
   if (largeCombo) {
-    pulseMessage("Duze combo! Jeszcze Polska nie zginęła!", 2200);
+    pulseMessage(t("messages.bigCombo"), 2200);
     spawnStarShower(chain, removed);
     speakLargeCombo();
   }
@@ -1009,7 +1304,7 @@ function trySwap(first, second) {
   if (!matches.cells.length) {
     state.invalidPulse = 220;
     state.selected = null;
-    pulseMessage("Te skarby nie lacza sie w grupe 3+.", 1100);
+    pulseMessage(t("messages.invalid"), 1100);
     return;
   }
 
@@ -1024,7 +1319,7 @@ function trySwap(first, second) {
     groups: matches.groups,
     chain: 1,
   };
-  pulseMessage("Fedruj! Kaskada ruszyla.", 1300);
+  pulseMessage(t("messages.cascadeStart"), 1300);
 }
 
 function activateCell(row, col) {
@@ -1040,7 +1335,7 @@ function activateCell(row, col) {
   const target = { row, col };
   if (!state.selected) {
     state.selected = target;
-    pulseMessage(`${tileMetaById[state.board[row][col].id].label} zaznaczony.`, 900);
+    pulseMessage(t("messages.selected", { label: getTreasureLabel(state.board[row][col].id) }), 900);
     return;
   }
 
@@ -1204,14 +1499,14 @@ function drawFrame() {
     currentLayoutMode === "mobile"
       ? '900 31px "Alegreya SC", Georgia, serif'
       : '900 38px "Alegreya SC", Georgia, serif';
-  ctx.fillText("Skarby Polskiej Ziemi", 68, 78);
+  ctx.fillText(t("canvas.title"), 68, 78);
 
   if (currentLayoutMode === "mobile") {
     ctx.font = '600 12px "Spectral", Georgia, serif';
-    wrapText("Lacz grupy skarbow zanim zabrzmi syrena z szybu.", 468, 58, 160, 14);
+    wrapText(t("canvas.subtitle"), 468, 58, 160, 14);
   } else {
     ctx.font = '600 16px "Spectral", Georgia, serif';
-    ctx.fillText("Lacz grupy skarbow zanim zabrzmi syrena z szybu.", 512, 80);
+    ctx.fillText(t("canvas.subtitle"), 512, 80);
   }
 }
 
@@ -1371,11 +1666,12 @@ function drawBoard(phaseTime) {
 }
 
 function wrapText(text, x, y, maxWidth, lineHeight) {
-  const words = text.split(" ");
+  const words = text.includes(" ") ? text.split(" ") : Array.from(text);
+  const separator = text.includes(" ") ? " " : "";
   let line = "";
   let lineY = y;
   for (const word of words) {
-    const testLine = line ? `${line} ${word}` : word;
+    const testLine = line ? `${line}${separator}${word}` : word;
     if (ctx.measureText(testLine).width > maxWidth && line) {
       ctx.fillText(line, x, lineY);
       line = word;
@@ -1445,15 +1741,29 @@ function drawMobilePanel() {
   const chipGap = 14;
   const chipWidth = (PANEL_W - 36 * 2 - chipGap * 2) / 3;
   const chipY = PANEL_Y + 22;
-  drawStatChip(PANEL_X + 22, chipY, chipWidth, 82, "Punkty", state.score);
-  drawStatChip(PANEL_X + 22 + chipWidth + chipGap, chipY, chipWidth, 82, "Czas", `${Math.max(0, Math.ceil(state.timeLeft / 1000))}s`);
-  drawStatChip(PANEL_X + 22 + (chipWidth + chipGap) * 2, chipY, chipWidth, 82, "Combo", `x${state.bestCombo || 1}`);
+  drawStatChip(PANEL_X + 22, chipY, chipWidth, 82, t("canvas.points"), state.score);
+  drawStatChip(
+    PANEL_X + 22 + chipWidth + chipGap,
+    chipY,
+    chipWidth,
+    82,
+    t("canvas.time"),
+    `${Math.max(0, Math.ceil(state.timeLeft / 1000))}s`,
+  );
+  drawStatChip(
+    PANEL_X + 22 + (chipWidth + chipGap) * 2,
+    chipY,
+    chipWidth,
+    82,
+    t("canvas.combo"),
+    `x${state.bestCombo || 1}`,
+  );
 
   ctx.fillStyle = COMIC_COLORS.ink;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.font = '800 21px "Alegreya SC", Georgia, serif';
-  ctx.fillText("Postep szybu", PANEL_X + 22, PANEL_Y + 126);
+  ctx.fillText(t("canvas.progress"), PANEL_X + 22, PANEL_Y + 126);
 
   const scoreRatio = clamp(state.score / TARGET_SCORE, 0, 1);
   drawRoundedRect(PANEL_X + 22, PANEL_Y + 160, PANEL_W - 44, 20, 10);
@@ -1487,7 +1797,7 @@ function drawMobilePanel() {
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.font = '700 13px "Spectral", Georgia, serif';
-    wrapText(type.label, x + 58, y + 12, cardWidth - 96, 16);
+    wrapText(getTreasureLabel(type.id), x + 58, y + 12, cardWidth - 96, 16);
     ctx.font = '900 26px "Alegreya SC", Georgia, serif';
     ctx.textAlign = "right";
     ctx.fillText(String(state.collected[type.id]), x + cardWidth - 14, y + 20);
@@ -1500,9 +1810,9 @@ function drawMobilePanel() {
     PANEL_W - 44,
     86,
     state.mode === "ready"
-      ? "Dotknij dwa sasiednie pola lub przesun palcem, aby zamienic skarby."
+      ? t("canvas.readyMobilePanel")
       : state.mode === "gameover"
-        ? "Dotknij Nowa fedra lub R i zacznij kolejna szychte."
+        ? t("canvas.playAgainMobile")
         : state.message,
     "rgba(255, 242, 202, 0.94)",
   );
@@ -1525,12 +1835,12 @@ function drawSidePanel() {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.font = '800 24px "Alegreya SC", Georgia, serif';
-  ctx.fillText("Szyb punktow", PANEL_X + 22, PANEL_Y + 18);
+  ctx.fillText(t("canvas.scoreShaft"), PANEL_X + 22, PANEL_Y + 18);
 
   const scoreRatio = clamp(state.score / TARGET_SCORE, 0, 1);
   ctx.font = '700 16px "Spectral", Georgia, serif';
-  ctx.fillText(`Punkty: ${state.score}`, PANEL_X + 22, PANEL_Y + 60);
-  ctx.fillText(`Cel: ${TARGET_SCORE}`, PANEL_X + 22, PANEL_Y + 84);
+  ctx.fillText(t("canvas.pointsLine", { score: state.score }), PANEL_X + 22, PANEL_Y + 60);
+  ctx.fillText(t("canvas.targetLine", { target: TARGET_SCORE }), PANEL_X + 22, PANEL_Y + 84);
 
   drawRoundedRect(PANEL_X + 20, PANEL_Y + 112, PANEL_W - 40, 20, 10);
   ctx.fillStyle = "rgba(32, 32, 39, 0.18)";
@@ -1541,14 +1851,14 @@ function drawSidePanel() {
 
   const secondsLeft = Math.max(0, Math.ceil(state.timeLeft / 1000));
   ctx.font = '900 24px "Alegreya SC", Georgia, serif';
-  ctx.fillText(`Czas: ${secondsLeft}s`, PANEL_X + 22, PANEL_Y + 152);
+  ctx.fillText(`${t("canvas.time")}: ${secondsLeft}s`, PANEL_X + 22, PANEL_Y + 152);
   ctx.font = '700 16px "Spectral", Georgia, serif';
-  ctx.fillText(`Ruchy: ${state.moves}`, PANEL_X + 22, PANEL_Y + 188);
-  ctx.fillText(`Najlepsza kaskada: x${state.bestCombo || 1}`, PANEL_X + 22, PANEL_Y + 212);
-  ctx.fillText(`Najwiekszy urobek: ${state.largestMatch || 0}`, PANEL_X + 22, PANEL_Y + 236);
+  ctx.fillText(`${t("canvas.moves")}: ${state.moves}`, PANEL_X + 22, PANEL_Y + 188);
+  ctx.fillText(`${t("canvas.bestCascade")}: x${state.bestCombo || 1}`, PANEL_X + 22, PANEL_Y + 212);
+  ctx.fillText(`${t("canvas.biggestHaul")}: ${state.largestMatch || 0}`, PANEL_X + 22, PANEL_Y + 236);
 
   ctx.font = '800 22px "Alegreya SC", Georgia, serif';
-  ctx.fillText("Magazyn", PANEL_X + 22, PANEL_Y + 274);
+  ctx.fillText(t("canvas.warehouse"), PANEL_X + 22, PANEL_Y + 274);
 
   let y = PANEL_Y + 316;
   for (const type of TREASURE_TYPES) {
@@ -1558,7 +1868,7 @@ function drawSidePanel() {
     }
     ctx.font = '700 15px "Spectral", Georgia, serif';
     ctx.fillStyle = COMIC_COLORS.ink;
-    ctx.fillText(type.label, PANEL_X + 62, y + 2);
+    ctx.fillText(getTreasureLabel(type.id), PANEL_X + 62, y + 2);
     ctx.textAlign = "right";
     ctx.fillText(String(state.collected[type.id]), PANEL_X + PANEL_W - 20, y + 2);
     ctx.textAlign = "left";
@@ -1571,9 +1881,9 @@ function drawSidePanel() {
     PANEL_W - 36,
     90,
     state.mode === "ready"
-      ? "Kliknij Start szychu albo nacisnij spacje. Potem zamieniaj sasiednie skarby."
+      ? t("canvas.readyDesktop")
       : state.mode === "gameover"
-        ? "Kliknij Nowa fedra lub R i pogon syrene jeszcze raz."
+        ? t("canvas.playAgainDesktop")
         : state.message,
     "rgba(255, 242, 202, 0.94)",
   );
@@ -1592,8 +1902,8 @@ function drawReadyOverlay() {
     bubbleWidth,
     currentLayoutMode === "mobile" ? 146 : 154,
     currentLayoutMode === "mobile"
-      ? "Dotknij dwa sasiednie skarby lub wykonaj krotki swipe. Strzalki i Enter dalej dzialaja, a F wlacza fullscreen."
-      : "Kliknij dwa sasiednie skarby, zeby je zamienic. Strzalki ruszaja kursorem, Enter lub Spacja wybieraja pole, F przelacza pelny ekran.",
+      ? t("canvas.instructionsMobile")
+      : t("canvas.instructionsDesktop"),
     "rgba(255, 238, 187, 0.97)",
   );
   ctx.fillStyle = "#fff8e6";
@@ -1604,7 +1914,7 @@ function drawReadyOverlay() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(
-    "Start szychu",
+    t("canvas.startOverlay"),
     BOARD_X + BOARD_WIDTH / 2,
     currentLayoutMode === "mobile" ? BOARD_Y + 420 : BOARD_Y + 380,
   );
@@ -1613,7 +1923,7 @@ function drawReadyOverlay() {
       ? '700 24px "Spectral", Georgia, serif'
       : '700 22px "Spectral", Georgia, serif';
   ctx.fillText(
-    "Cel: 4500 punktow przed syrena.",
+    t("canvas.goalOverlay", { target: TARGET_SCORE }),
     BOARD_X + BOARD_WIDTH / 2,
     currentLayoutMode === "mobile" ? BOARD_Y + 470 : BOARD_Y + 430,
   );
@@ -1633,8 +1943,8 @@ function drawGameOverOverlay() {
     bubbleWidth,
     currentLayoutMode === "mobile" ? 158 : 168,
     state.score >= TARGET_SCORE
-      ? "Syrena ucichla, a magazyn pekal od skarbow. To byla wzorowa fedra."
-      : "Syrena przerwala zmiane. Urobek jest dobry, ale szychtowy glod jeszcze rosnie.",
+      ? t("canvas.gameOverWin")
+      : t("canvas.gameOverLose"),
     "rgba(245, 232, 196, 0.97)",
   );
   ctx.fillStyle = "#fff8e6";
@@ -1645,7 +1955,7 @@ function drawGameOverOverlay() {
       ? '900 44px "Alegreya SC", Georgia, serif'
       : '900 52px "Alegreya SC", Georgia, serif';
   ctx.fillText(
-    "Koniec szychu",
+    t("canvas.gameOverTitle"),
     BOARD_X + BOARD_WIDTH / 2,
     currentLayoutMode === "mobile" ? BOARD_Y + 428 : BOARD_Y + 386,
   );
@@ -1654,7 +1964,7 @@ function drawGameOverOverlay() {
       ? '700 24px "Spectral", Georgia, serif'
       : '700 22px "Spectral", Georgia, serif';
   ctx.fillText(
-    `Wynik koncowy: ${state.score}`,
+    t("canvas.finalScoreLine", { score: state.score }),
     BOARD_X + BOARD_WIDTH / 2,
     currentLayoutMode === "mobile" ? BOARD_Y + 476 : BOARD_Y + 434,
   );
@@ -1680,7 +1990,7 @@ function render() {
       currentLayoutMode === "mobile" ? BOARD_Y + 230 : BOARD_Y + 200,
       loadingWidth,
       110,
-      "Ladujemy skarby i kredowy kontur planszy...",
+    t("canvas.loadingOverlay"),
       "#fff3cc",
     );
   }
@@ -1767,6 +2077,7 @@ async function loadAssets() {
 
 function renderGameToText() {
   const payload = {
+    language: currentLanguage,
     note: "board[0][0] is top-left; x increases right, y increases down",
     mode: state.mode,
     score: state.score,
@@ -1908,6 +2219,10 @@ attachAudioUnlockListeners(restartBtn);
 attachAudioUnlockListeners(fullscreenBtn);
 attachAudioUnlockListeners(muteBtn);
 
+languageSelect?.addEventListener("change", (event) => {
+  setLanguage(event.target.value);
+});
+
 startBtn.addEventListener("click", () => {
   void primeAudioFromGesture();
   startGame();
@@ -1928,7 +2243,7 @@ muteBtn.addEventListener("click", () => {
 window.addEventListener("fullscreenchange", () => {
   syncResponsiveLayout();
   pulseMessage(
-    document.fullscreenElement ? "Pelny ekran aktywny." : "Powrot z pelnego ekranu.",
+    document.fullscreenElement ? t("messages.fullscreenOn") : t("messages.fullscreenOff"),
     1200,
   );
 });
@@ -1940,12 +2255,12 @@ async function boot() {
     await loadAssets();
     state.mode = "ready";
     state.board = buildBoardForSeed(createRoundSeed());
-    pulseMessage("Wcisnij Start szychu.", 1800);
+    pulseMessage(t("messages.promptStart"), 1800);
   } catch (error) {
     console.error(error);
     state.mode = "ready";
     state.board = buildBoardForSeed(createRoundSeed());
-    pulseMessage("Czesc assetow nie doszla, ale gra rusza.", 2500);
+    pulseMessage(t("messages.assetFallback"), 2500);
   }
   syncButtons();
   syncResponsiveLayout();

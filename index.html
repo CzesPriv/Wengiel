@@ -9,9 +9,9 @@
   <body>
     <main class="poster-shell">
       <header class="masthead">
-        <p class="eyebrow">Polska ziemia. Francuski kadr. Match-3 pod ziemia.</p>
+        <p class="eyebrow" id="eyebrow-text">Polska ziemia. Francuski kadr. Match-3 pod ziemia.</p>
         <h1>Wengiel</h1>
-        <p class="lede">
+        <p class="lede" id="lede-text">
           Kreskowkowa ukladanka o skarbach Polski: bursztynie, miedzi, krzemieniu pasiastym,
           soli i dwoch odcieniach wegla.
         </p>
@@ -23,6 +23,14 @@
           <button id="restart-btn" class="comic-btn comic-btn-secondary">Nowa fedra</button>
           <button id="fullscreen-btn" class="comic-btn comic-btn-secondary">Pelny ekran [F]</button>
           <button id="mute-btn" class="comic-btn comic-btn-secondary">Mute [M]</button>
+          <label class="language-picker" for="language-select">
+            <span id="language-label">Jezyk</span>
+            <select id="language-select" class="language-select">
+              <option value="pl">Polski</option>
+              <option value="en">English</option>
+              <option value="zh-CN">中文</option>
+            </select>
+          </label>
         </div>
         <canvas
           id="game-canvas"
