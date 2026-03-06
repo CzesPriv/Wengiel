@@ -45,9 +45,9 @@ let PANEL_Y = DESKTOP_LAYOUT.panelY;
 let PANEL_W = DESKTOP_LAYOUT.panelW;
 let PANEL_H = DESKTOP_LAYOUT.panelH;
 const ROUND_TIME_MS = 95_000;
-const TARGET_SCORE = 4500;
+const TARGET_SCORE = 6000;
 const FRAME_MS = 1000 / 60;
-const BIG_COMBO_REMOVED = 5;
+const BIG_COMBO_REMOVED = 6;
 const BIG_COMBO_CHAIN = 2;
 const COMIC_COLORS = {
   ink: "#202027",
@@ -305,7 +305,11 @@ function nowMs() {
 }
 
 function isLargeCombo(chain, removed, groups) {
-  return chain >= BIG_COMBO_CHAIN || removed >= BIG_COMBO_REMOVED || groups.length >= 2;
+  return (
+    chain >= BIG_COMBO_CHAIN ||
+    removed >= BIG_COMBO_REMOVED ||
+    groups.some((group) => group.length >= 5)
+  );
 }
 
 function resetRandom(seed) {
@@ -924,7 +928,7 @@ function settleBoardAfterClear(chain) {
     columnsToUpdate.add(cell.col);
   }
 
-  state.score += uniqueMatched.length * 70 * chain;
+  state.score += uniqueMatched.length * 60 * chain;
   state.shake = Math.min(14, 3 + removed * 0.4);
   state.sparkle = 420;
   playMatchSound(removed, chain, largeCombo);
