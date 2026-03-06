@@ -1,0 +1,207 @@
+@import url("https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@700;800;900&family=Spectral:wght@400;500;600;700&display=swap");
+
+:root {
+  --paper: #f4ead2;
+  --ink: #1f1f24;
+  --copper: #bf6f35;
+  --coal: #26313f;
+  --amber: #e69d2c;
+  --sky: #6ca1ac;
+  --wine: #8a3b30;
+  --frame: #f0e4ca;
+  --shadow: rgba(24, 24, 30, 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Spectral", Georgia, serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(255, 213, 131, 0.75), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(96, 147, 158, 0.66), transparent 35%),
+    linear-gradient(160deg, #efe3c7 0%, #e6d5b6 40%, #d9ceb6 100%);
+  overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.28) 0 2px, transparent 2px),
+    radial-gradient(circle at 80% 50%, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px);
+  background-size: 42px 42px, 24px 24px;
+  opacity: 0.55;
+}
+
+body::after {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%);
+  mix-blend-mode: soft-light;
+}
+
+.poster-shell {
+  width: min(1120px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+.masthead {
+  position: relative;
+  margin-bottom: 20px;
+  padding: 24px 28px 18px;
+  border: 4px solid var(--ink);
+  border-radius: 26px;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 240, 0.95), rgba(239, 220, 176, 0.9)),
+    #f7ecd2;
+  box-shadow: 10px 10px 0 rgba(31, 31, 36, 0.16);
+}
+
+.masthead::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  top: -14px;
+  width: 120px;
+  height: 44px;
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffc865, #ef8d2d);
+  transform: rotate(7deg);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.masthead h1 {
+  margin: 0;
+  font-family: "Alegreya SC", serif;
+  font-size: clamp(2.6rem, 7vw, 5.4rem);
+  line-height: 0.95;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lede {
+  max-width: 66ch;
+  margin: 14px 0 0;
+  font-size: 1.08rem;
+}
+
+.stage-frame {
+  position: relative;
+  border: 5px solid var(--ink);
+  border-radius: 28px;
+  padding: 16px;
+  background:
+    linear-gradient(145deg, rgba(251, 244, 225, 0.92), rgba(205, 188, 156, 0.85)),
+    var(--frame);
+  box-shadow:
+    0 22px 40px var(--shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.stage-frame::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 3px solid rgba(31, 31, 36, 0.12);
+  border-radius: 18px;
+  pointer-events: none;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  background: transparent;
+  image-rendering: auto;
+}
+
+.control-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 6px 0;
+}
+
+.comic-btn {
+  appearance: none;
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  padding: 12px 20px;
+  font: 700 1rem/1 "Alegreya SC", serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, #ffdb7e, #f0a433),
+    #f7bb5a;
+  color: var(--ink);
+  box-shadow: 0 7px 0 rgba(31, 31, 36, 0.18);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease;
+}
+
+.comic-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 0 rgba(31, 31, 36, 0.16);
+  filter: saturate(1.05);
+}
+
+.comic-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 4px 0 rgba(31, 31, 36, 0.18);
+}
+
+.comic-btn-secondary {
+  background:
+    linear-gradient(180deg, #e8f0ef, #bed8db),
+    #c7e1dc;
+}
+
+@media (max-width: 860px) {
+  .poster-shell {
+    width: min(100vw - 18px, 1120px);
+    padding-top: 14px;
+  }
+
+  .masthead {
+    padding: 20px 18px 14px;
+  }
+
+  .lede {
+    font-size: 1rem;
+  }
+
+  .stage-frame {
+    padding: 10px;
+  }
+
+  .comic-btn {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+}

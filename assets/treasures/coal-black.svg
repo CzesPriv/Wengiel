@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="coalShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#617088"/>
+      <stop offset="0.52" stop-color="#283240"/>
+      <stop offset="1" stop-color="#171c25"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="20" fill="none"/>
+  <path d="M26 88 22 56l24-22 28 6 18 12 10 24-20 20-30 8-26-6Z" fill="url(#coalShade)" stroke="#11161d" stroke-linejoin="round" stroke-width="8"/>
+  <path d="m48 34 10 18 22 4-12 18-24-8-12-20Z" fill="#7d8ca3" opacity=".58"/>
+  <path d="m38 88 18-14 18 8-16 10Z" fill="#0b0f14" opacity=".4"/>
+  <circle cx="46" cy="50" r="4" fill="#faf6e9"/>
+  <circle cx="80" cy="60" r="3" fill="#faf6e9"/>
+  <path d="M36 98c6-6 14-10 24-12" fill="none" stroke="#faf6e9" stroke-linecap="round" stroke-width="5"/>
+</svg>

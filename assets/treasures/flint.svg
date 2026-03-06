@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="flintShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2c188"/>
+      <stop offset="0.44" stop-color="#9d968e"/>
+      <stop offset="1" stop-color="#665f59"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 88 34 42l20-14 24 8 22 20-8 32-24 16H44L24 88Z" fill="url(#flintShade)" stroke="#2f2d2a" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M38 50c14 0 28 6 42 18" fill="none" stroke="#f4ddb0" stroke-linecap="round" stroke-width="6"/>
+  <path d="M36 72c16 2 30 8 42 18" fill="none" stroke="#f4ddb0" stroke-linecap="round" stroke-width="6"/>
+  <circle cx="50" cy="48" r="4" fill="#fff3da"/>
+  <circle cx="74" cy="78" r="3" fill="#fff3da"/>
+</svg>

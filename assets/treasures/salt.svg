@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="saltGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.42" stop-color="#c5e8ef"/>
+      <stop offset="1" stop-color="#82a8b2"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 20 98 52 86 104H42L30 52l34-32Z" fill="url(#saltGlow)" stroke="#29424d" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M46 54h36M50 72h28" fill="none" stroke="#f9fdff" stroke-linecap="round" stroke-width="6"/>
+  <path d="m44 94 14-34m10 34 16-42" fill="none" stroke="#dff6fb" stroke-linecap="round" stroke-width="5"/>
+  <circle cx="54" cy="44" r="4" fill="#ffffff"/>
+  <circle cx="76" cy="46" r="4" fill="#ffffff"/>
+</svg>

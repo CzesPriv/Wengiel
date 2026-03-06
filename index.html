@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wengiel</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="poster-shell">
+      <header class="masthead">
+        <p class="eyebrow">Polska ziemia. Francuski kadr. Match-3 pod ziemia.</p>
+        <h1>Wengiel</h1>
+        <p class="lede">
+          Kreskowkowa ukladanka o skarbach Polski: bursztynie, miedzi, krzemieniu pasiastym,
+          soli i dwoch odcieniach wegla.
+        </p>
+      </header>
+
+      <section class="control-strip">
+        <button id="start-btn" class="comic-btn">Start szychu</button>
+        <button id="restart-btn" class="comic-btn comic-btn-secondary">Nowa fedra</button>
+        <button id="fullscreen-btn" class="comic-btn comic-btn-secondary">Pelny ekran [F]</button>
+        <button id="mute-btn" class="comic-btn comic-btn-secondary">Mute [M]</button>
+      </section>
+
+      <section class="stage-frame">
+        <canvas
+          id="game-canvas"
+          width="960"
+          height="720"
+          aria-label="Gra Wengiel"
+        ></canvas>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
