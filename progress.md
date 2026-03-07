@@ -26,3 +26,15 @@ Original prompt: stworz gre w stylu bejeweled, tylko zamiast diamentow uzywaj, s
 - 2026-03-06: Smoke klientem skilla zapisany w `output/web-game/client-smoke-i18n/`; `state-0.json` potwierdza dzialajaca gre po starcie (`mode=playing`, `audioActive=true`, `targetScore=6000`).
 - 2026-03-06: Weryfikacja jezykow i adjacency-only move zapisana w `output/web-game/i18n-adjacency-check/`: `ui-en.*`, `ui-zh-CN.*`, `adjacency-en.*`. Screenshot `ui-zh-CN.png` potwierdza poprawny rendering chinskiego, a `adjacency-en.json` potwierdza ruch poprawny tylko dla adjacency, nie dla line-matchingu (`removed=3`, `score=180`).
 - TODO: Jesli uzytkownik bedzie chcial publikacje zmian, pozostaje commit i push; biezacy stan jest jeszcze lokalny i niezatwierdzony.
+- 2026-03-07: Uzytkownik potwierdzil, ze `assets/heads/` jest intencjonalne; dodano portrety Tusk/Nawrocki jako popupy w prawym dolnym rogu na 3 sekundy.
+- 2026-03-07: Dla pojedynczego matcha `3` bez chain reaction gra pokazuje Tuska i probuje odtworzyc glos przez speech synthesis (`comboVoiceMode = speech-small`); dla duzego combo pokazuje Nawrockiego, zachowujac istniejace `Jeszcze Polska nie zginela`.
+- 2026-03-07: Deszcz gwiazdek zostal zamieniony na deszcz bielikow, bez zmiany warunku biznesowego duzego combo.
+- 2026-03-07: `assets/treasures/lignite.svg` i `assets/treasures/copper.svg` zostaly przerobione tak, by miedz miala wyrazne patynowe zyly, a wegiel brunatny bardziej warstwowy, ziemisty rysunek.
+- 2026-03-07: Smoke klientem skilla zapisany w `output/web-game/politics-smoke/`; `state-0.json` potwierdza dzialajaca gre po starcie oraz nowe pola diagnostyczne `effects.eagles` i `effects.portraitPopup`.
+- 2026-03-07: Weryfikacja efektow politycznych zapisana w `output/web-game/politics-effects/`: `tusk-popup.*` potwierdza czysta trojke bez kaskady (`portraitPopup = tusk`, `comboVoiceMode = speech-small`), a `nawrocki-popup.*` potwierdza duze combo (`portraitPopup = nawrocki`, `eagles = 22`, `comboVoiceMode = buffer`).
+- TODO: Odsluch fizyczny `fur deutchland` na docelowym urzadzeniu pozostaje do potwierdzenia poza headless browserem.
+- 2026-03-07: Zmieniono semantyke premium cue: popupy Tusk/Nawrocki trwaja teraz 2 sekundy zamiast 3.
+- 2026-03-07: Nawrocki wraca do oryginalnej grafiki z `assets/heads/Nawrocki.jpg`; nie jest juz lokalnie wycinany z tla.
+- 2026-03-07: Nawrocki i `Jeszcze Polska nie zginela` odpalaja sie raz, dopiero na koncu calego combo, a nie podczas pierwszego clearu premium.
+- 2026-03-07: Zaktualizowano scenariusz `output/web-game/politics-effects/verify-politics-effects.mjs`, aby czekal na faktyczny stan popupu po zakonczeniu combo zamiast na sztywne opoznienie.
+- 2026-03-07: Retest `politics-effects/` potwierdza nowa semantyke: `nawrocki-popup.json` ma `pendingPhase = null`, `portraitPopup = nawrocki`, `portraitTimerMs = 1780`, `comboVoiceMode = buffer`; `tusk-popup.json` ma `portraitTimerMs = 1675`.

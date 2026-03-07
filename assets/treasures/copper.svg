@@ -1,14 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
     <linearGradient id="copperGlow" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffd198"/>
-      <stop offset="0.4" stop-color="#c36b3a"/>
-      <stop offset="1" stop-color="#874420"/>
+      <stop offset="0" stop-color="#ffd8a8"/>
+      <stop offset="0.38" stop-color="#d77535"/>
+      <stop offset="1" stop-color="#8d421d"/>
     </linearGradient>
   </defs>
-  <path d="M20 84 28 46l30-18 24 4 24 26-10 34-24 14-38-8Z" fill="url(#copperGlow)" stroke="#442112" stroke-linejoin="round" stroke-width="8"/>
-  <path d="M42 42c8 6 22 10 40 10" fill="none" stroke="#ffe0b8" stroke-linecap="round" stroke-width="6"/>
-  <path d="M36 72c12-6 26-8 42-6" fill="none" stroke="#ffe0b8" stroke-linecap="round" stroke-width="6"/>
-  <circle cx="44" cy="50" r="4" fill="#fff5ea"/>
-  <circle cx="78" cy="76" r="3" fill="#fff5ea"/>
+  <path d="M18 86 30 40l28-12 24 8 28 22-8 30-24 18-40-4Z" fill="url(#copperGlow)" stroke="#452010" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M34 44c10 7 26 11 46 10" fill="none" stroke="#fff0cf" stroke-linecap="round" stroke-width="6"/>
+  <path d="M32 74c16-7 34-8 52-4" fill="none" stroke="#ffe7c4" stroke-linecap="round" stroke-width="6"/>
+  <path d="M56 34c4 16 6 34 4 54" fill="none" stroke="#4db4a4" stroke-linecap="round" stroke-width="6"/>
+  <path d="M78 48c6 8 10 18 12 30" fill="none" stroke="#70d5c6" stroke-linecap="round" stroke-width="5"/>
+  <circle cx="42" cy="52" r="5" fill="#f7fff8"/>
+  <circle cx="82" cy="74" r="4" fill="#f7fff8"/>
 </svg>

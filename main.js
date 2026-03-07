@@ -112,6 +112,25 @@ const CONFIGURED_TEST_SEED = parseSeedValue(
 );
 const LARGE_COMBO_VOICE_SRC = "./assets/audio/jeszcze-polska.wav";
 const LARGE_COMBO_VOICE_LINE = "Jeszcze Polska nie zginęła";
+const SMALL_MATCH_VOICE_LINE = "fur deutchland";
+const PORTRAIT_POPUP_MS = 2000;
+const PORTRAIT_CONFIGS = {
+  tusk: {
+    src: "./assets/heads/Tusk.png",
+    crop: { x: 0.24, y: 0.02, w: 0.52, h: 0.98 },
+    mode: "flat",
+    threshold: 20,
+    frameFill: "#dce7f4",
+    accent: "#2f4c61",
+  },
+  nawrocki: {
+    src: "./assets/heads/Nawrocki.jpg",
+    crop: { x: 0, y: 0, w: 1, h: 1 },
+    mode: "raw",
+    frameFill: "#f7e9da",
+    accent: "#9b4332",
+  },
+};
 
 const audioState = {
   ctx: null,
@@ -174,6 +193,7 @@ const tileMetaById = Object.fromEntries(TREASURE_TYPES.map((item) => [item.id, i
 
 const assets = {
   images: new Map(),
+  portraits: new Map(),
   background: null,
   comboVoiceBytes: null,
   comboVoiceBuffer: null,
@@ -198,6 +218,9 @@ const state = {
   shake: 0,
   sparkle: 0,
   starShower: [],
+  portraitPopup: null,
+  pendingSmallCue: false,
+  pendingLargeCue: false,
   frames: 0,
   moves: 0,
   lastTick: performance.now(),
@@ -633,6 +656,158 @@ function makeCell(id) {
   };
 }
 
+function createSurface(width, height) {
+  const surface = document.createElement("canvas");
+  surface.width = Math.max(1, Math.round(width));
+  surface.height = Math.max(1, Math.round(height));
+  return surface;
+}
+
+function rgbaDistance(data, aOffset, bColor) {
+  const dr = data[aOffset] - bColor[0];
+  const dg = data[aOffset + 1] - bColor[1];
+  const db = data[aOffset + 2] - bColor[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function pixelDistance(data, aOffset, bOffset) {
+  const dr = data[aOffset] - data[bOffset];
+  const dg = data[aOffset + 1] - data[bOffset + 1];
+  const db = data[aOffset + 2] - data[bOffset + 2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function collectBackgroundPalette(data, width, height) {
+  const palette = [];
+  const pushColor = (offset) => {
+    if (data[offset + 3] < 10) return;
+    const color = [data[offset], data[offset + 1], data[offset + 2]];
+    if (palette.some((entry) => rgbaDistance(data, offset, entry) < 16)) return;
+    palette.push(color);
+  };
+  const step = Math.max(2, Math.round(Math.min(width, height) / 32));
+  const sideLimit = Math.max(2, Math.floor(height * 0.68));
+
+  for (let x = 0; x < width; x += step) {
+    pushColor((x + 0 * width) * 4);
+    pushColor(((Math.min(height - 1, step) * width) + x) * 4);
+  }
+  for (let y = 0; y < sideLimit; y += step) {
+    pushColor((y * width + 0) * 4);
+    pushColor((y * width + Math.max(0, width - 1)) * 4);
+  }
+  return palette;
+}
+
+// Remove colors connected to the upper and side edges to create a lightweight cutout.
+function createPortraitCutout(image, config) {
+  if (config.mode === "raw") {
+    return image;
+  }
+  const sx = Math.floor(image.width * config.crop.x);
+  const sy = Math.floor(image.height * config.crop.y);
+  const sw = Math.max(1, Math.floor(image.width * config.crop.w));
+  const sh = Math.max(1, Math.floor(image.height * config.crop.h));
+  const surface = createSurface(sw, sh);
+  const surfaceCtx = surface.getContext("2d", { willReadFrequently: true });
+  surfaceCtx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  const imageData = surfaceCtx.getImageData(0, 0, sw, sh);
+  const data = imageData.data;
+  const visited = new Uint8Array(sw * sh);
+
+  if (config.mode === "flat") {
+    const keyColor = [data[0], data[1], data[2]];
+    for (let index = 0; index < visited.length; index += 1) {
+      const offset = index * 4;
+      if (data[offset + 3] < 12) continue;
+      if (rgbaDistance(data, offset, keyColor) <= (config.threshold || 20)) {
+        visited[index] = 1;
+      }
+    }
+  } else {
+    const palette = collectBackgroundPalette(data, sw, sh);
+    const queue = [];
+    let queueIndex = 0;
+
+    const enqueue = (x, y) => {
+      if (x < 0 || x >= sw || y < 0 || y >= sh) return;
+      const pixelIndex = y * sw + x;
+      if (visited[pixelIndex]) return;
+      const offset = pixelIndex * 4;
+      if (data[offset + 3] < 12) return;
+      const nearPalette = palette.some((color) => rgbaDistance(data, offset, color) <= 74);
+      if (!nearPalette) return;
+      visited[pixelIndex] = 1;
+      queue.push({ x, y, offset });
+    };
+
+    for (let x = 0; x < sw; x += 1) {
+      enqueue(x, 0);
+    }
+    const sideLimit = Math.max(1, Math.floor(sh * 0.72));
+    for (let y = 0; y < sideLimit; y += 1) {
+      enqueue(0, y);
+      enqueue(sw - 1, y);
+    }
+
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex];
+      queueIndex += 1;
+      const neighbors = [
+        { x: current.x - 1, y: current.y },
+        { x: current.x + 1, y: current.y },
+        { x: current.x, y: current.y - 1 },
+        { x: current.x, y: current.y + 1 },
+      ];
+      for (const neighbor of neighbors) {
+        if (neighbor.x < 0 || neighbor.x >= sw || neighbor.y < 0 || neighbor.y >= sh) continue;
+        const pixelIndex = neighbor.y * sw + neighbor.x;
+        if (visited[pixelIndex]) continue;
+        const offset = pixelIndex * 4;
+        if (data[offset + 3] < 12) continue;
+        const nearPalette = palette.some((color) => rgbaDistance(data, offset, color) <= 86);
+        if (!nearPalette) continue;
+        if (pixelDistance(data, current.offset, offset) > 34) continue;
+        visited[pixelIndex] = 1;
+        queue.push({ x: neighbor.x, y: neighbor.y, offset });
+      }
+    }
+  }
+
+  let minX = sw;
+  let minY = sh;
+  let maxX = 0;
+  let maxY = 0;
+  for (let index = 0; index < visited.length; index += 1) {
+    if (visited[index]) {
+      data[index * 4 + 3] = 0;
+      continue;
+    }
+    if (data[index * 4 + 3] < 14) continue;
+    const x = index % sw;
+    const y = Math.floor(index / sw);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+
+  surfaceCtx.putImageData(imageData, 0, 0);
+  if (minX > maxX || minY > maxY) {
+    return surface;
+  }
+
+  const pad = 10;
+  const trimWidth = maxX - minX + 1;
+  const trimHeight = maxY - minY + 1;
+  const output = createSurface(trimWidth + pad * 2, trimHeight + pad * 2);
+  output
+    .getContext("2d")
+    .drawImage(surface, minX, minY, trimWidth, trimHeight, pad, pad, trimWidth, trimHeight);
+  return output;
+}
+
 function ensureAudioSystem() {
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtor) return false;
@@ -846,6 +1021,45 @@ function playFallSound(maxDrop) {
   });
 }
 
+function speakSpeechLine(line, { lang, rate, pitch, voicePrefix, mode }) {
+  if (!("speechSynthesis" in window) || audioState.muted) return false;
+  try {
+    const voices = window.speechSynthesis.getVoices?.() || [];
+    const preferredVoice =
+      voices.find((voice) => voice.lang?.toLowerCase().startsWith(voicePrefix)) || null;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume?.();
+    const utterance = new SpeechSynthesisUtterance(line);
+    utterance.lang = lang;
+    utterance.rate = rate;
+    utterance.pitch = pitch;
+    utterance.volume = 1;
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+    window.speechSynthesis.speak(utterance);
+    audioState.lastComboVoiceMode = mode;
+    audioState.lastComboVoiceAt = nowMs();
+    return true;
+  } catch (error) {
+    console.warn("Speech synthesis failed", error);
+    return false;
+  }
+}
+
+function speakSmallMatchCue() {
+  if (audioState.muted) return;
+  if (nowMs() < audioState.speechCooldownUntil) return;
+  audioState.speechCooldownUntil = nowMs() + 2600;
+  speakSpeechLine(SMALL_MATCH_VOICE_LINE, {
+    lang: "de-DE",
+    rate: 0.9,
+    pitch: 0.84,
+    voicePrefix: "de",
+    mode: "speech-small",
+  });
+}
+
 function speakLargeCombo() {
   if (audioState.muted) return;
   if (nowMs() < audioState.speechCooldownUntil) return;
@@ -853,27 +1067,13 @@ function speakLargeCombo() {
   if (playComboVoiceBuffer()) return;
 
   const fallbackSpeech = () => {
-    if (!("speechSynthesis" in window)) return;
-    try {
-      const voices = window.speechSynthesis.getVoices?.() || [];
-      const polishVoice =
-        voices.find((voice) => voice.lang?.toLowerCase().startsWith("pl")) || null;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.resume?.();
-      const utterance = new SpeechSynthesisUtterance(LARGE_COMBO_VOICE_LINE);
-      utterance.lang = "pl-PL";
-      utterance.rate = 0.92;
-      utterance.pitch = 0.95;
-      utterance.volume = 1;
-      if (polishVoice) {
-        utterance.voice = polishVoice;
-      }
-      window.speechSynthesis.speak(utterance);
-      audioState.lastComboVoiceMode = "speech";
-      audioState.lastComboVoiceAt = nowMs();
-    } catch (error) {
-      console.warn("Speech synthesis failed", error);
-    }
+    speakSpeechLine(LARGE_COMBO_VOICE_LINE, {
+      lang: "pl-PL",
+      rate: 0.92,
+      pitch: 0.95,
+      voicePrefix: "pl",
+      mode: "speech",
+    });
   };
 
   if (assets.comboVoiceBytes && audioState.ctx?.state === "running") {
@@ -890,6 +1090,16 @@ function speakLargeCombo() {
   fallbackSpeech();
 }
 
+function showPortraitPopup(id) {
+  if (!assets.portraits.has(id)) return;
+  state.portraitPopup = {
+    id,
+    timer: PORTRAIT_POPUP_MS,
+    duration: PORTRAIT_POPUP_MS,
+    tilt: -0.06 + nextRandom() * 0.12,
+  };
+}
+
 function spawnStarShower(chain, removed) {
   const count = 12 + removed + chain * 4;
   for (let index = 0; index < count; index += 1) {
@@ -902,7 +1112,8 @@ function spawnStarShower(chain, removed) {
       rotation: nextRandom() * Math.PI * 2,
       spin: -3 + nextRandom() * 6,
       life: 1700 + nextRandom() * 1000,
-      hue: randItem(["#ffd34f", "#fff3aa", "#ffb347", "#ffe77a"]),
+      wing: randItem(["#fffdf6", "#f6f1e1", "#fef8e8"]),
+      beak: randItem(["#d69c2f", "#f0ba42"]),
     });
   }
 }
@@ -953,15 +1164,34 @@ function updateStarShower(deltaMs) {
   });
 }
 
+function updatePortraitPopup(deltaMs) {
+  if (!state.portraitPopup) return;
+  state.portraitPopup.timer = Math.max(0, state.portraitPopup.timer - deltaMs);
+  if (state.portraitPopup.timer === 0) {
+    state.portraitPopup = null;
+  }
+}
+
 function finalizeBoardAfterFall(chain) {
   snapFallingTiles();
   const matches = findMatches(state.board);
   if (matches.cells.length) {
+    state.pendingSmallCue = false;
     pulseMessage(t("messages.cascade", { chain: chain + 1 }), 1200);
     queueMatches(matches, chain + 1);
     return;
   }
 
+  if (state.pendingLargeCue) {
+    pulseMessage(t("messages.bigCombo"), 2200);
+    showPortraitPopup("nawrocki");
+    speakLargeCombo();
+  } else if (state.pendingSmallCue && chain === 1) {
+    showPortraitPopup("tusk");
+    speakSmallMatchCue();
+  }
+  state.pendingSmallCue = false;
+  state.pendingLargeCue = false;
   state.pendingPhase = null;
   state.combo = 0;
   if (!boardHasMoves(state.board)) {
@@ -1154,6 +1384,9 @@ function startGame() {
   state.shake = 0;
   state.sparkle = 0;
   state.starShower = [];
+  state.portraitPopup = null;
+  state.pendingSmallCue = false;
+  state.pendingLargeCue = false;
   state.moves = 0;
   state.largestMatch = 0;
   syncButtons();
@@ -1226,12 +1459,12 @@ function settleBoardAfterClear(chain) {
   state.score += uniqueMatched.length * 60 * chain;
   state.shake = Math.min(14, 3 + removed * 0.4);
   state.sparkle = 420;
+  state.pendingSmallCue = chain === 1 && removed === 3 && !largeCombo;
+  state.pendingLargeCue = state.pendingLargeCue || largeCombo;
   playMatchSound(removed, chain, largeCombo);
 
   if (largeCombo) {
-    pulseMessage(t("messages.bigCombo"), 2200);
     spawnStarShower(chain, removed);
-    speakLargeCombo();
   }
 
   columnsToUpdate.forEach((col) => {
@@ -1618,24 +1851,54 @@ function drawComicStar(star) {
   ctx.save();
   ctx.translate(star.x, star.y);
   ctx.rotate(star.rotation);
-  ctx.fillStyle = star.hue;
   ctx.strokeStyle = "rgba(32, 32, 39, 0.78)";
-  ctx.lineWidth = 2.4;
+  ctx.lineWidth = 2.2;
+
+  ctx.fillStyle = star.wing;
   ctx.beginPath();
-  for (let index = 0; index < 10; index += 1) {
-    const angle = -Math.PI / 2 + (index * Math.PI) / 5;
-    const radius = index % 2 === 0 ? star.size : star.size * 0.46;
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  }
+  ctx.moveTo(-star.size * 0.98, star.size * 0.18);
+  ctx.quadraticCurveTo(-star.size * 0.42, -star.size * 0.92, -star.size * 0.08, -star.size * 0.08);
+  ctx.quadraticCurveTo(-star.size * 0.1, star.size * 0.3, -star.size * 0.92, star.size * 0.44);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(star.size * 0.98, star.size * 0.18);
+  ctx.quadraticCurveTo(star.size * 0.42, -star.size * 0.92, star.size * 0.08, -star.size * 0.08);
+  ctx.quadraticCurveTo(star.size * 0.1, star.size * 0.3, star.size * 0.92, star.size * 0.44);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#fbf7ea";
+  ctx.beginPath();
+  ctx.ellipse(0, star.size * 0.02, star.size * 0.3, star.size * 0.48, 0, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-star.size * 0.12, star.size * 0.42);
+  ctx.lineTo(0, star.size * 0.92);
+  ctx.lineTo(star.size * 0.12, star.size * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = star.beak;
+  ctx.beginPath();
+  ctx.moveTo(0, -star.size * 0.06);
+  ctx.lineTo(star.size * 0.22, star.size * 0.08);
+  ctx.lineTo(0, star.size * 0.18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = COMIC_COLORS.ink;
+  ctx.beginPath();
+  ctx.arc(-star.size * 0.1, -star.size * 0.12, Math.max(1.6, star.size * 0.06), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -1643,6 +1906,52 @@ function drawStarShower() {
   for (const star of state.starShower) {
     drawComicStar(star);
   }
+}
+
+function drawPortraitPopup() {
+  if (!state.portraitPopup) return;
+  const portrait = assets.portraits.get(state.portraitPopup.id);
+  if (!portrait) return;
+
+  const config = PORTRAIT_CONFIGS[state.portraitPopup.id];
+  const progress = 1 - state.portraitPopup.timer / state.portraitPopup.duration;
+  const intro = clamp(progress / 0.18, 0, 1);
+  const outro = clamp(state.portraitPopup.timer / 420, 0, 1);
+  const alpha = Math.min(intro, outro);
+  const width = currentLayoutMode === "mobile" ? 176 : 230;
+  const height = currentLayoutMode === "mobile" ? 188 : 244;
+  const x = canvas.width - width - (currentLayoutMode === "mobile" ? 22 : 30);
+  const y =
+    canvas.height -
+    height -
+    (currentLayoutMode === "mobile" ? 30 : 38) +
+    (1 - alpha) * 22;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x + width / 2, y + height / 2);
+  ctx.rotate(state.portraitPopup.tilt);
+
+  drawRoundedRect(-width / 2 + 8, -height / 2 + 16, width - 8, height - 6, 28);
+  ctx.fillStyle = "rgba(32, 32, 39, 0.18)";
+  ctx.fill();
+
+  drawRoundedRect(-width / 2, -height / 2, width, height, 26);
+  ctx.fillStyle = config.frameFill;
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = COMIC_COLORS.ink;
+  ctx.stroke();
+
+  drawRoundedRect(-width / 2 + 10, -height / 2 + 10, width - 20, height - 20, 22);
+  ctx.fillStyle = "rgba(255, 249, 234, 0.92)";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = config.accent;
+  ctx.stroke();
+
+  ctx.drawImage(portrait, -width / 2 + 18, -height / 2 + 14, width - 36, height - 36);
+  ctx.restore();
 }
 
 function drawBoard(phaseTime) {
@@ -1978,6 +2287,7 @@ function render() {
   drawBoard(state.frames);
   drawSidePanel();
   drawStarShower();
+  drawPortraitPopup();
 
   if (state.mode === "ready") {
     drawReadyOverlay();
@@ -2000,6 +2310,7 @@ function tick(deltaMs) {
   state.frames += 1;
   updateTileFallAnimations(deltaMs);
   updateStarShower(deltaMs);
+  updatePortraitPopup(deltaMs);
   scheduleAnthemLoop();
 
   if (state.messageTimer > 0) {
@@ -2047,8 +2358,22 @@ async function loadImage(key, src) {
   assets.images.set(key, image);
 }
 
+async function loadPortrait(key, config) {
+  const image = new Image();
+  image.src = config.src;
+  await image.decode();
+  assets.portraits.set(key, createPortraitCutout(image, config));
+}
+
 async function loadAssets() {
   const jobs = TREASURE_TYPES.map((item) => loadImage(item.id, item.sprite));
+  jobs.push(
+    ...Object.entries(PORTRAIT_CONFIGS).map(([key, config]) =>
+      loadPortrait(key, config).catch((error) => {
+        console.warn(`Portrait asset failed for ${key}`, error);
+      }),
+    ),
+  );
   jobs.push(
     fetch(LARGE_COMBO_VOICE_SRC)
       .then((response) => {
@@ -2101,6 +2426,9 @@ function renderGameToText() {
       pendingPhase: state.pendingPhase?.type || null,
       fallingTiles: state.board.flat().filter((cell) => cell && Math.abs(cell.fallOffsetY || 0) > 0.5).length,
       stars: state.starShower.length,
+      eagles: state.starShower.length,
+      portraitPopup: state.portraitPopup?.id || null,
+      portraitTimerMs: state.portraitPopup ? Math.round(state.portraitPopup.timer) : 0,
       audioActive: audioState.active,
       muted: audioState.muted,
       comboVoiceLoaded: Boolean(assets.comboVoiceBytes),

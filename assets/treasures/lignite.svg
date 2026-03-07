@@ -1,14 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
     <linearGradient id="ligniteShade" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#d19b67"/>
-      <stop offset="0.44" stop-color="#8a4f26"/>
-      <stop offset="1" stop-color="#5b2f17"/>
+      <stop offset="0" stop-color="#b58253"/>
+      <stop offset="0.45" stop-color="#7a4a29"/>
+      <stop offset="1" stop-color="#4f2b17"/>
     </linearGradient>
   </defs>
-  <path d="M22 88 28 48l24-18 30 6 20 20 4 28-22 20H46L22 88Z" fill="url(#ligniteShade)" stroke="#2f170d" stroke-linejoin="round" stroke-width="8"/>
-  <path d="M36 84c12-14 28-24 48-30" fill="none" stroke="#e5bf90" stroke-linecap="round" stroke-width="6"/>
-  <path d="M44 46c12 10 26 16 42 18" fill="none" stroke="#f5d0a2" stroke-linecap="round" stroke-width="6"/>
-  <circle cx="50" cy="54" r="3" fill="#fff2de"/>
-  <circle cx="80" cy="62" r="3" fill="#fff2de"/>
+  <path d="M24 92 30 44l24-14 24 4 22 18 6 34-18 18H46L24 92Z" fill="url(#ligniteShade)" stroke="#2d170d" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M38 48c18 5 34 7 50 4" fill="none" stroke="#d8b18b" stroke-linecap="round" stroke-width="5"/>
+  <path d="M34 64c14 4 32 5 54 2" fill="none" stroke="#e7c6a0" stroke-linecap="round" stroke-width="5"/>
+  <path d="M40 82c12 3 28 3 44-1" fill="none" stroke="#f1d2ab" stroke-linecap="round" stroke-width="5"/>
+  <path d="M54 38c6 9 10 18 12 28" fill="none" stroke="#5a321d" stroke-linecap="round" stroke-width="6"/>
+  <circle cx="50" cy="74" r="3" fill="#fff0da"/>
+  <circle cx="80" cy="56" r="3" fill="#fff0da"/>
 </svg>
