@@ -38,3 +38,7 @@ Original prompt: stworz gre w stylu bejeweled, tylko zamiast diamentow uzywaj, s
 - 2026-03-07: Nawrocki i `Jeszcze Polska nie zginela` odpalaja sie raz, dopiero na koncu calego combo, a nie podczas pierwszego clearu premium.
 - 2026-03-07: Zaktualizowano scenariusz `output/web-game/politics-effects/verify-politics-effects.mjs`, aby czekal na faktyczny stan popupu po zakonczeniu combo zamiast na sztywne opoznienie.
 - 2026-03-07: Retest `politics-effects/` potwierdza nowa semantyke: `nawrocki-popup.json` ma `pendingPhase = null`, `portraitPopup = nawrocki`, `portraitTimerMs = 1780`, `comboVoiceMode = buffer`; `tusk-popup.json` ma `portraitTimerMs = 1675`.
+- 2026-03-07: Naprawiono mobile audio dla malej trojki: dodano `assets/audio/fur-deutchland.wav` i przelaczono maly cue z samego `speechSynthesis` na Web Audio buffer z fallbackiem speech tylko awaryjnie.
+- 2026-03-07: Dodano diagnostyke `effects.smallCueLoaded` i `effects.smallCueReady` do `render_game_to_text`, zeby odroznic stan assetu malego cue od premium combo.
+- 2026-03-07: Test mobilny w `output/web-game/mobile-small-cue/` potwierdza problem naprawiony: `mobile-small-cue.json` ma `audioActive = true`, `smallCueLoaded = true`, `smallCueReady = true`, `comboVoiceMode = buffer-small`, `portraitPopup = tusk`.
+- 2026-03-07: Retest desktopowego scenariusza `politics-effects/` potwierdza brak regresji: mala trojka przechodzi na `buffer-small`, a duzy combo zostaje na `buffer`.

@@ -111,6 +111,7 @@ const CONFIGURED_TEST_SEED = parseSeedValue(
   SEARCH_PARAMS.get("seed") ?? window.__WENGIEL_TEST_SEED__,
 );
 const LARGE_COMBO_VOICE_SRC = "./assets/audio/jeszcze-polska.wav";
+const SMALL_MATCH_VOICE_SRC = "./assets/audio/fur-deutchland.wav";
 const LARGE_COMBO_VOICE_LINE = "Jeszcze Polska nie zginęła";
 const SMALL_MATCH_VOICE_LINE = "fur deutchland";
 const PORTRAIT_POPUP_MS = 2000;
@@ -195,6 +196,9 @@ const assets = {
   images: new Map(),
   portraits: new Map(),
   background: null,
+  smallMatchVoiceBytes: null,
+  smallMatchVoiceBuffer: null,
+  smallMatchVoiceDecodePromise: null,
   comboVoiceBytes: null,
   comboVoiceBuffer: null,
   comboVoiceDecodePromise: null,
@@ -897,6 +901,28 @@ async function ensureComboVoiceBuffer() {
   return assets.comboVoiceDecodePromise;
 }
 
+async function ensureSmallMatchVoiceBuffer() {
+  if (!audioState.ctx || !assets.smallMatchVoiceBytes) return null;
+  if (assets.smallMatchVoiceBuffer) return assets.smallMatchVoiceBuffer;
+  if (!assets.smallMatchVoiceDecodePromise) {
+    const bytes = assets.smallMatchVoiceBytes.slice(0);
+    assets.smallMatchVoiceDecodePromise = audioState.ctx
+      .decodeAudioData(bytes)
+      .then((buffer) => {
+        assets.smallMatchVoiceBuffer = buffer;
+        return buffer;
+      })
+      .catch((error) => {
+        console.warn("Small match voice decode failed", error);
+        return null;
+      })
+      .finally(() => {
+        assets.smallMatchVoiceDecodePromise = null;
+      });
+  }
+  return assets.smallMatchVoiceDecodePromise;
+}
+
 function playComboVoiceBuffer() {
   if (!audioState.ctx || audioState.ctx.state !== "running") return false;
   if (!assets.comboVoiceBuffer || !audioState.masterGain) return false;
@@ -909,6 +935,22 @@ function playComboVoiceBuffer() {
   gain.connect(audioState.masterGain);
   source.start(audioState.ctx.currentTime + 0.02);
   audioState.lastComboVoiceMode = "buffer";
+  audioState.lastComboVoiceAt = nowMs();
+  return true;
+}
+
+function playSmallMatchVoiceBuffer() {
+  if (!audioState.ctx || audioState.ctx.state !== "running") return false;
+  if (!assets.smallMatchVoiceBuffer || !audioState.masterGain) return false;
+
+  const source = audioState.ctx.createBufferSource();
+  const gain = audioState.ctx.createGain();
+  gain.gain.value = 1.08;
+  source.buffer = assets.smallMatchVoiceBuffer;
+  source.connect(gain);
+  gain.connect(audioState.masterGain);
+  source.start(audioState.ctx.currentTime + 0.02);
+  audioState.lastComboVoiceMode = "buffer-small";
   audioState.lastComboVoiceAt = nowMs();
   return true;
 }
@@ -929,6 +971,7 @@ async function primeAudioFromGesture() {
   primeAudioHardware();
   const active = markAudioActive();
   if (active) {
+    void ensureSmallMatchVoiceBuffer();
     void ensureComboVoiceBuffer();
   }
   return active;
@@ -1051,13 +1094,30 @@ function speakSmallMatchCue() {
   if (audioState.muted) return;
   if (nowMs() < audioState.speechCooldownUntil) return;
   audioState.speechCooldownUntil = nowMs() + 2600;
-  speakSpeechLine(SMALL_MATCH_VOICE_LINE, {
-    lang: "de-DE",
-    rate: 0.9,
-    pitch: 0.84,
-    voicePrefix: "de",
-    mode: "speech-small",
-  });
+  if (playSmallMatchVoiceBuffer()) return;
+
+  const fallbackSpeech = () => {
+    speakSpeechLine(SMALL_MATCH_VOICE_LINE, {
+      lang: "de-DE",
+      rate: 0.9,
+      pitch: 0.84,
+      voicePrefix: "de",
+      mode: "speech-small",
+    });
+  };
+
+  if (assets.smallMatchVoiceBytes && audioState.ctx?.state === "running") {
+    void ensureSmallMatchVoiceBuffer().then((buffer) => {
+      if (buffer && !audioState.muted) {
+        playSmallMatchVoiceBuffer();
+        return;
+      }
+      fallbackSpeech();
+    });
+    return;
+  }
+
+  fallbackSpeech();
 }
 
 function speakLargeCombo() {
@@ -2375,6 +2435,21 @@ async function loadAssets() {
     ),
   );
   jobs.push(
+    fetch(SMALL_MATCH_VOICE_SRC)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((bytes) => {
+        assets.smallMatchVoiceBytes = bytes;
+      })
+      .catch((error) => {
+        console.warn("Small match voice asset failed", error);
+      }),
+  );
+  jobs.push(
     fetch(LARGE_COMBO_VOICE_SRC)
       .then((response) => {
         if (!response.ok) {
@@ -2431,6 +2506,8 @@ function renderGameToText() {
       portraitTimerMs: state.portraitPopup ? Math.round(state.portraitPopup.timer) : 0,
       audioActive: audioState.active,
       muted: audioState.muted,
+      smallCueLoaded: Boolean(assets.smallMatchVoiceBytes),
+      smallCueReady: Boolean(assets.smallMatchVoiceBuffer),
       comboVoiceLoaded: Boolean(assets.comboVoiceBytes),
       comboVoiceReady: Boolean(assets.comboVoiceBuffer),
       comboVoiceMode: audioState.lastComboVoiceMode,
